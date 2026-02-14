@@ -37,7 +37,34 @@ def stabilize_video(input_path: Path, output_path: Path, smoothing_factor: float
     video_capture.release()
 
 
+def compute_optical_flow(prevFrame: np.ndarray, nextFrame: np.ndarray):
+    prev_gray = cv.cvtColor(prevFrame, cv.COLOR_BGR2GRAY)
+    prev_corners = cv.goodFeaturesToTrack(prev_gray, maxCorners=200, qualityLevel=0.01, minDistance=30)
+    next_gray = cv.cvtColor(nextFrame, cv.COLOR_BGR2GRAY)
 
+    if prev_corners is None:
+        return np.eye(3, dtype=np.float32)  # No corners detected, return identity transformation
 
+    # Parameters for Lucas-Kanade optical flow
+    lk_params = dict(
+        winSize = (15, 15),
+        maxLevel = 2,
+        criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03)
+    )
+    next_corners, status, _ = cv.calcOpticalFlowPyrLK(prev_gray, next_gray, prev_corners, None, **lk_params)
+
+    valid = status.flatten() == 1
+    prev_corners_good = prev_corners[valid]
+    next_corners_good = next_corners[valid]
+
+    if len(prev_corners_good) < 3:
+        return np.eye(3, dtype=np.float32)  # Not enough points for transformation estimation
+
+    transform_2x3, _ = cv.estimateAffinePartial2D(prev_corners_good, next_corners_good)
+    if transform_2x3 is None:
+        return np.eye(3, dtype=np.float32)
+
+    transform_3x3 = np.vstack([transform_2x3, [0, 0, 1]]).astype(np.float32)
+    return transform_3x3
 
 
