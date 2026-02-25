@@ -1,7 +1,7 @@
 black==26.1.0
 click==8.3.1
 colorama==0.4.6
-cupy-cuda12x==13.6.0
+cupy-cuda13x==13.6.0
 fastrlock==0.8.3
 flake8==7.3.0
 iniconfig==2.3.0

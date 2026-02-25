@@ -1,139 +1,279 @@
-from pathlib import Path
-import cv2 as cv
+"""
+Video stabilization module with CUDA acceleration.
+
+This module implements robust video stabilization using:
+- GPU-accelerated sparse optical flow (CuPy Lucas-Kanade)
+- GPU-accelerated RANSAC transform estimation (CuPy)
+- Gaussian smoothing for natural motion preservation
+- CUDA-accelerated trajectory smoothing via CuPy
+- GPU-accelerated frame warping via CuPy
+- Auto-crop to remove black borders
+"""
+
 import numpy as np
-import cupy as cp
+import cv2 as cv
+from typing import Tuple, Optional, List
+import time
+from .cuda_kernels import (
+    check_cuda_available,
+    get_device_info,
+    smooth_trajectory_gpu,
+    build_correction_transforms_gpu,
+    compute_max_displacement_gpu,
+    set_cuda_verbose,
+    warp_frame_gpu,
+    compute_optical_flow_gpu,
+    estimate_transform_from_flow_gpu,
+)
+from .utils import (
+    calculate_auto_crop,
+    apply_auto_crop,
+    get_codec_for_extension,
+    estimate_processing_time,
+)
+from .metrics import compute_all_metrics
 
-def stabilize_video(input_path: Path, output_path: Path, smoothing_factor: float, verbose: bool):
-    video_capture = cv.VideoCapture(str(input_path))
 
-    if not video_capture.isOpened():
-        raise IOError(f"Cannot open video file: {input_path}")
+def stabilize_video(
+    input_path: str,
+    output_path: str,
+    smoothing_factor: float = 0.3,
+    verbose: bool = False,
+    auto_crop: bool = True,
+    preserve_resolution: bool = True,
+) -> None:
+    """
+    Stabilize a video using GPU-accelerated feature tracking and trajectory smoothing.
 
-    frame_width = int(video_capture.get(cv.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(video_capture.get(cv.CAP_PROP_FRAME_HEIGHT))
-    fps = video_capture.get(cv.CAP_PROP_FPS)
-    total_frames = int(video_capture.get(cv.CAP_PROP_FRAME_COUNT))
+    Args:
+        input_path: Path to input video file
+        output_path: Path for stabilized output video
+        smoothing_factor: Smoothing strength (0.0-1.0)
+        verbose: Print detailed progress information
+        auto_crop: Whether to crop black borders
+        preserve_resolution: If True, resize cropped frame back to original size
+
+    Raises:
+        FileNotFoundError: If input file doesn't exist
+        RuntimeError: If video cannot be opened or processed
+    """
+    # Check for CUDA
+    cuda_available = check_cuda_available()
+
+    # Enable CUDA profiling if verbose
+    set_cuda_verbose(verbose)
+
+    if not cuda_available:
+        raise RuntimeError("CUDA is required but not available. Check your CUDA installation.")
 
     if verbose:
-        print(f"Video Properties:\n- Resolution: {frame_width}x{frame_height}\n- FPS: {fps}\n- Total Frames: {total_frames}")
+        info = get_device_info()
+        print(f"CUDA enabled - Device {info['device_id']}, "
+              f"{info['free_memory_gb']:.1f}GB free")
 
-    transforms = []
-    ret, prev_frame = video_capture.read()
-    # Store the first frame for later use in stabilization
+    # Open video
+    cap = cv.VideoCapture(str(input_path))
+    if not cap.isOpened():
+        raise FileNotFoundError(f"Cannot open input video: {input_path}")
+
+    # Get video properties
+    width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv.CAP_PROP_FPS)
+    frame_count = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
+
+    if verbose:
+        print(f"Input: {width}x{height} @ {fps:.2f}fps, {frame_count} frames")
+        print(f"Estimated time: {estimate_processing_time(frame_count, cuda_available)}")
+        print("Optical flow: CuPy GPU (CUDA)")
+
+    # === PASS 1: Compute inter-frame transforms ===
+    if verbose:
+        print("Pass 1: Computing optical flow...")
+        flow_start = time.perf_counter()
+
+    ret, prev_frame = cap.read()
     if not ret:
-        raise IOError("Failed to read the first frame of the video.")
-    first_frame = prev_frame.copy()
-    for i in range(1, total_frames):
-        ret, next_frame = video_capture.read()
+        raise RuntimeError("Cannot read first frame")
+
+    prev_gray = cv.cvtColor(prev_frame, cv.COLOR_BGR2GRAY)
+
+    # Store transforms and individual motion components
+    transforms: List[np.ndarray] = []
+    dx_list: List[float] = []
+    dy_list: List[float] = []
+    da_list: List[float] = []
+
+    frame_idx = 1
+    while True:
+        ret, curr_frame = cap.read()
         if not ret:
-            raise IOError(f"Failed to read frame {i} of the video.")
-        transform = compute_optical_flow(prev_frame, next_frame)
-        transforms.append(transform)
-        prev_frame = next_frame
-        if verbose and i % 30 == 0:
-            print(f"Computed LK optical flow for {i}/{total_frames} frames...")
-    transforms_arr = np.array(transforms, dtype=np.float32)
-    print(f"Completed optical flow computation for all frames. Total transforms computed: {len(transforms)}")
+            break
 
-    smoothed_transforms = smooth_trajectory(transforms_arr, smoothing_factor)
+        curr_gray = cv.cvtColor(curr_frame, cv.COLOR_BGR2GRAY)
 
-    video_writer = cv.VideoWriter(str(output_path), cv.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height), True)
+        # Compute transform between frames using GPU optical flow
+        prev_pts, curr_pts = compute_optical_flow_gpu(prev_gray, curr_gray)
+        H, dx, dy, da = estimate_transform_from_flow_gpu(prev_pts, curr_pts)
 
+        if H is not None:
+            transforms.append(H)
+            dx_list.append(dx)
+            dy_list.append(dy)
+            da_list.append(da)
+        else:
+            # No transform found - assume no motion
+            transforms.append(np.eye(3, dtype=np.float32))
+            dx_list.append(0.0)
+            dy_list.append(0.0)
+            da_list.append(0.0)
 
-    video_capture.release()
-    video_capture = cv.VideoCapture(str(input_path))
-    ret, first_frame = video_capture.read()
-    if not ret:
-        raise IOError("Failed to read the first frame during stabilization.")
-    video_writer.write(first_frame)
+        prev_gray = curr_gray
+        frame_idx += 1
 
-    for i in range(1, total_frames):
-        ret, frame = video_capture.read()
+        if verbose and frame_idx % 100 == 0:
+            print(f"  Processed {frame_idx}/{frame_count} frames...")
+
+    cap.release()
+
+    if len(transforms) == 0:
+        raise RuntimeError("No valid transforms computed")
+
+    # Convert to arrays
+    dx = np.array(dx_list, dtype=np.float32)
+    dy = np.array(dy_list, dtype=np.float32)
+    da = np.array(da_list, dtype=np.float32)
+
+    if verbose:
+        flow_elapsed = time.perf_counter() - flow_start
+        flow_fps = len(transforms) / flow_elapsed if flow_elapsed > 0 else 0
+        print(f"Completed optical flow: {len(transforms)} frames in {flow_elapsed:.1f}s ({flow_fps:.1f} fps)")
+
+    # === PASS 2: Smooth trajectory ===
+    if verbose:
+        print("Pass 2: Smoothing trajectory...")
+
+    corrected_transforms = smooth_trajectory(dx, dy, da, smoothing_factor)
+
+    # Compute max displacements for auto-crop
+    max_dx, max_dy, max_da = compute_max_displacement(corrected_transforms, verbose)
+
+    if verbose:
+        print(f"  Max displacement: dx={max_dx:.1f}px, dy={max_dy:.1f}px, da={np.degrees(max_da):.2f}deg")
+
+    # Calculate crop rectangle
+    crop_rect = None
+    output_size = None
+    if auto_crop:
+        crop_rect = calculate_auto_crop(width, height, max_dx, max_dy, max_da)
+        if verbose:
+            x, y, w, h = crop_rect
+            print(f"  Auto-crop: {w}x{h} (removed {x}px borders)")
+
+        if preserve_resolution:
+            output_size = (width, height)
+
+    # === PASS 3: Apply transforms and write output ===
+    if verbose:
+        print("Pass 3: Applying stabilization...")
+        print(f"  Warp mode: GPU (CuPy CUDA)")
+
+    cap = cv.VideoCapture(str(input_path))
+
+    # Determine output codec and create writer
+    fourcc = get_codec_for_extension(str(output_path))
+    out = cv.VideoWriter(str(output_path), fourcc, fps, (width, height))
+
+    if not out.isOpened():
+        raise RuntimeError(f"Cannot create output video: {output_path}")
+
+    # Write first frame (no transform applied)
+    ret, frame = cap.read()
+    if auto_crop and crop_rect is not None:
+        frame = apply_auto_crop(frame, crop_rect, output_size)
+    out.write(frame)
+
+    # Apply transforms to remaining frames using GPU warping
+    warp_start = time.perf_counter()
+    for i, T in enumerate(corrected_transforms):
+        ret, frame = cap.read()
         if not ret:
-            raise IOError(f"Failed to read frame {i} during stabilization.")
-        M = smoothed_transforms[i-1][:2, :]
-        stabilized_frame = cv.warpAffine(frame, M, (frame_width, frame_height), flags=cv.INTER_LINEAR, borderMode=cv.BORDER_REPLICATE)
-        video_writer.write(stabilized_frame)
-        if verbose and i % 30 == 0:
-            print(f"Applied stabilization to {i}/{total_frames} frames...")
+            break
 
-    video_writer.release()
-    video_capture.release()
+        # GPU-accelerated warp (falls back to CPU LANCZOS4 if no OpenCV CUDA)
+        stabilized = warp_frame_gpu(frame, T[:2, :], width, height)
+
+        # Apply auto-crop if enabled
+        if auto_crop and crop_rect is not None:
+            stabilized = apply_auto_crop(stabilized, crop_rect, output_size)
+
+        out.write(stabilized)
+
+        if verbose and (i + 1) % 100 == 0:
+            elapsed = time.perf_counter() - warp_start
+            fps_actual = (i + 1) / elapsed
+            print(f"  Written {i + 2}/{frame_count} frames... ({fps_actual:.1f} fps)")
+
+    cap.release()
+    out.release()
+
+    if verbose:
+        total_warp_time = time.perf_counter() - warp_start
+        print(f"  Warping completed in {total_warp_time:.1f}s")
+        print(f"Done! Output saved to: {output_path}")
+
+    # === PASS 4: Compute and display metrics ===
+    if verbose:
+        print("\n" + "="*60)
+        metrics = compute_all_metrics(
+            str(input_path),
+            str(output_path),
+            crop_rect=crop_rect,
+            original_size=(width, height),
+            verbose=True
+        )
+        print(metrics)
 
 
-def compute_optical_flow(prevFrame: np.ndarray, nextFrame: np.ndarray):
-    prev_gray = cv.cvtColor(prevFrame, cv.COLOR_BGR2GRAY)
-    prev_corners = cv.goodFeaturesToTrack(prev_gray, maxCorners=200, qualityLevel=0.01, minDistance=30)
-    next_gray = cv.cvtColor(nextFrame, cv.COLOR_BGR2GRAY)
+def smooth_trajectory(
+    dx: np.ndarray,
+    dy: np.ndarray,
+    da: np.ndarray,
+    smoothing_factor: float,
+) -> np.ndarray:
+    """
+    Smooth the camera trajectory and compute correction transforms using CUDA.
 
-    if prev_corners is None:
-        return np.eye(3, dtype=np.float32)  # No corners detected, return identity transformation
+    Args:
+        dx: X translation per frame
+        dy: Y translation per frame
+        da: Rotation angle per frame
+        smoothing_factor: Smoothing strength (0.0-1.0)
 
-    # Parameters for Lucas-Kanade optical flow
-    lk_params = dict(
-        winSize = (15, 15),
-        maxLevel = 2,
-        criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03)
-    )
-    next_corners, status, _ = cv.calcOpticalFlowPyrLK(prev_gray, next_gray, prev_corners, None, **lk_params)
+    Returns:
+        Array of 3x3 correction transformation matrices
 
-    valid = status.flatten() == 1
-    prev_corners_good = prev_corners[valid]
-    next_corners_good = next_corners[valid]
+    Raises:
+        RuntimeError: If CUDA is not available
+    """
+    if not check_cuda_available():
+        raise RuntimeError("CUDA required but not available. Check your CUDA installation.")
+    corr_x, corr_y, corr_a = smooth_trajectory_gpu(dx, dy, da, smoothing_factor)
+    return build_correction_transforms_gpu(corr_x, corr_y, corr_a)
 
-    if len(prev_corners_good) < 3:
-        return np.eye(3, dtype=np.float32)  # Not enough points for transformation estimation
 
-    transform_2x3, _ = cv.estimateAffinePartial2D(prev_corners_good, next_corners_good)
-    if transform_2x3 is None:
-        return np.eye(3, dtype=np.float32)
+def compute_max_displacement(transforms: np.ndarray, verbose: bool = False) -> Tuple[float, float, float]:
+    """
+    Compute maximum displacement from correction transforms using CUDA.
 
-    transform_3x3 = np.vstack([transform_2x3, [0, 0, 1]]).astype(np.float32)
-    return transform_3x3
+    Args:
+        transforms: Array of 3x3 transformation matrices
+        verbose: Unused, kept for API compatibility
 
-def smooth_trajectory(transforms: np.ndarray, smoothing_factor: float):
-    # Extracting frame-to-frame transformations
-    dx = transforms[:, 0, 2]
-    dy = transforms[:, 1, 2]
-    da = np.arctan2(transforms[:, 1, 0], transforms[:, 0, 0])
-
-    # Cumulative sum to get the trajectory
-    traj_x = np.cumsum(dx)
-    traj_y = np.cumsum(dy)
-    traj_a = np.cumsum(da)
-
-    # Window size for smoothing is determined via smoothing factor
-    # The smoothing factor is clamped between 0.0 and 1.0 to ensure valid window sizes
-    # Lowest - 5 frames (minimal smoothing), Highest - 101 frames (aggressive smoothing)
-    # Created low-pass filter kernel for trajectory smoothing
-    smoothing_factor = max(0.0, min(smoothing_factor, 1.0))
-    window = int(5 + smoothing_factor * 96)
-    if window % 2 == 0:
-        window += 1
-    kernel = np.ones(window) / window
-
-    # Padded moving average convolution
-    pad = window // 2
-    traj_x_smoothed = np.convolve(np.pad(traj_x, (pad, pad), mode='edge'), kernel, mode='valid')
-    traj_y_smoothed = np.convolve(np.pad(traj_y, (pad, pad), mode='edge'), kernel, mode='valid')
-    traj_a_smoothed = np.convolve(np.pad(traj_a, (pad, pad), mode='edge'), kernel, mode='valid')
-
-    corr_x = traj_x_smoothed - traj_x
-    corr_y = traj_y_smoothed - traj_y
-    corr_a = traj_a_smoothed - traj_a
-
-    # Corrected transforms
-    corrected = []
-    for i in range(len(transforms)):
-        a = da[i] + corr_a[i]
-        cos_a = np.cos(a)
-        sin_a = np.sin(a)
-        T = np.array([
-            [cos_a, -sin_a, dx[i] + corr_x[i]],
-            [sin_a,  cos_a, dy[i] + corr_y[i]],
-            [0,      0,     1]
-        ], dtype=np.float32)
-        corrected.append(T)
-
-    return np.array(corrected, dtype=np.float32)
+    Returns:
+        Tuple of (max_dx, max_dy, max_da)
+    """
+    if not check_cuda_available():
+        raise RuntimeError("CUDA required but not available.")
+    return compute_max_displacement_gpu(transforms)
 
