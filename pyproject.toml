@@ -36,9 +36,9 @@ classifiers = [
 
 dependencies = [
     "numpy>=1.22,<3.0",
-    "cupy-cuda12x>=13.0",
     "opencv-python>=4.8",
     "click>=8.0",
+    # CuPy must be installed separately - cupy-cuda12x or cupy-cuda13x both work. Match nvcc --version
 ]
 
 [project.optional-dependencies]
