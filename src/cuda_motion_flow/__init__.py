@@ -1,7 +1,7 @@
 """
 cuda-motion-flow: GPU-accelerated video stabilization.
 
-Full CUDA pipeline — no OpenCV CUDA required:
+Full CUDA pipeline:
 
   1. Corner detection  : raw CUDA Scharr gradient + Shi-Tomasi response kernel
   2. Feature tracking  : vectorised pyramidal Lucas-Kanade (all points parallel)
