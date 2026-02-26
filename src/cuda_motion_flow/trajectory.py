@@ -61,11 +61,11 @@ def smooth_trajectory_gaussian(
     dy: np.ndarray,
     da: np.ndarray,
     smoothing_strength: float = 0.3,
-) -> Tuple["cp.ndarray", "cp.ndarray", "cp.ndarray"]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Smooth cumulative trajectory with GPU Gaussian convolution.
+    Smooth cumulative trajectory with Gaussian convolution.
 
-    Returns (corr_x, corr_y, corr_a) correction arrays on the GPU.
+    Returns (corr_x, corr_y, corr_a) correction arrays.
     """
     smoothing_strength = float(np.clip(smoothing_strength, 0.0, 1.0))
     window = int(5 + smoothing_strength * 96)
@@ -73,28 +73,26 @@ def smooth_trajectory_gaussian(
         window += 1
     sigma = window / 6.0
 
-    dx_g = cp.asarray(dx, dtype=cp.float32)
-    dy_g = cp.asarray(dy, dtype=cp.float32)
-    da_g = cp.asarray(da, dtype=cp.float32)
-
-    traj_x = cp.cumsum(dx_g)
-    traj_y = cp.cumsum(dy_g)
-    traj_a = cp.cumsum(da_g)
+    # Trajectory arrays are tiny (frame count) — no benefit from GPU FFT,
+    # and it requires cuFFT DLLs from the full CUDA toolkit install.
+    traj_x_np = np.cumsum(np.asarray(dx, dtype=np.float32))
+    traj_y_np = np.cumsum(np.asarray(dy, dtype=np.float32))
+    traj_a_np = np.cumsum(np.asarray(da, dtype=np.float32))
 
     pad = window // 2
-    tx_pad = cp.pad(traj_x, (pad, pad), mode='edge')
-    ty_pad = cp.pad(traj_y, (pad, pad), mode='edge')
-    ta_pad = cp.pad(traj_a, (pad, pad), mode='edge')
+    tx_pad = np.pad(traj_x_np, (pad, pad), mode='edge')
+    ty_pad = np.pad(traj_y_np, (pad, pad), mode='edge')
+    ta_pad = np.pad(traj_a_np, (pad, pad), mode='edge')
 
-    kernel = cp.exp(-cp.arange(-(window // 2), window // 2 + 1,
-                               dtype=cp.float32) ** 2 / (2 * sigma ** 2))
+    kernel = np.exp(-np.arange(-(window // 2), window // 2 + 1,
+                               dtype=np.float32) ** 2 / (2 * sigma ** 2))
     kernel = kernel / kernel.sum()
 
-    sx = cp.convolve(tx_pad, kernel, mode='valid')
-    sy = cp.convolve(ty_pad, kernel, mode='valid')
-    sa = cp.convolve(ta_pad, kernel, mode='valid')
+    sx = np.convolve(tx_pad, kernel, mode='valid')
+    sy = np.convolve(ty_pad, kernel, mode='valid')
+    sa = np.convolve(ta_pad, kernel, mode='valid')
 
-    return sx - traj_x, sy - traj_y, sa - traj_a
+    return sx - traj_x_np, sy - traj_y_np, sa - traj_a_np
 
 
 # ---------------------------------------------------------------------------
