@@ -37,3 +37,8 @@ Thumbs.db
 *.avi
 *.mov
 !sample_input.mp4
+
+.claude
+
+
+*.bak
