@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import cv2 as cv
 import numpy as np
@@ -47,6 +47,7 @@ def stabilize_video(
     auto_crop: bool = True,
     preserve_resolution: bool = True,
     export_trajectory: Optional[str] = None,
+    progress_callback: Optional[Callable[[str, int, int], None]] = None,
 ) -> None:
     """
     Stabilize a video using the full CUDA-accelerated pipeline.
@@ -140,6 +141,8 @@ def stabilize_video(
         prev_gray = curr_gray
         frame_idx += 1
 
+        if progress_callback:
+            progress_callback("flow", frame_idx, frame_count - 1)
         if verbose and frame_idx % 100 == 0:
             print(f"  {frame_idx}/{frame_count}...")
 
@@ -166,11 +169,17 @@ def stabilize_video(
         print(f"\nPass 2: trajectory smoothing ({smoother})...")
         t0 = time.perf_counter()
 
+    if progress_callback:
+        progress_callback("smooth", 0, 1)
+
     corrected = smooth_trajectory(
         dx_arr, dy_arr, da_arr,
         method=smoother,
         smoothing_strength=smoothing_factor,
     )
+
+    if progress_callback:
+        progress_callback("smooth", 1, 1)
 
     max_dx, max_dy, max_da = compute_max_displacement_gpu(corrected)
 
@@ -227,6 +236,8 @@ def stabilize_video(
 
         out.write(stabilized)
 
+        if progress_callback:
+            progress_callback("warp", i + 1, len(corrected))
         if verbose and (i + 1) % 100 == 0:
             elapsed = time.perf_counter() - t0
             print(f"  {i + 2}/{frame_count}  ({(i + 1) / elapsed:.1f} fps)")

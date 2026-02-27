@@ -56,9 +56,14 @@ def get_device_info() -> dict:
     if not check_cuda_available():
         return {"available": False}
     dev = cp.cuda.Device()
+    try:
+        name = cp.cuda.runtime.getDeviceProperties(dev.id)["name"].decode()
+    except Exception:
+        name = f"Device {dev.id}"
     return {
         "available": True,
         "device_id": dev.id,
+        "device_name": name,
         "compute_capability": dev.compute_capability,
         "total_memory_gb": dev.mem_info[1] / 1e9,
         "free_memory_gb":  dev.mem_info[0] / 1e9,
