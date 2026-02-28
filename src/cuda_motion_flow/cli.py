@@ -23,6 +23,7 @@ from rich import box
 from cuda_motion_flow.stabilizer import stabilize_video
 from cuda_motion_flow.cuda_kernels import check_cuda_available, get_device_info
 from cuda_motion_flow.trajectory import SMOOTHERS
+from cuda_motion_flow import __version__ as _VERSION
 
 # ── rich-click help styling ────────────────────────────────────────────────────
 click.rich_click.USE_RICH_MARKUP       = True
@@ -38,7 +39,7 @@ click.rich_click.STYLE_OPTIONS_PANEL_BORDER   = "cyan"
 click.rich_click.STYLE_OPTIONS_PANEL_BOX      = "ROUNDED"
 click.rich_click.STYLE_COMMANDS_PANEL_BORDER  = "dim cyan"
 click.rich_click.HEADER_TEXT = (
-    "[bold bright_cyan]cuda-motion-flow[/]  [dim cyan]v0.5.0[/]"
+    f"[bold bright_cyan]cuda-motion-flow[/]  [dim cyan]v{_VERSION}[/]"
     "  [dim]·  GPU-accelerated video stabilization[/]"
 )
 click.rich_click.FOOTER_TEXT = (
@@ -67,7 +68,7 @@ click.rich_click.OPTION_GROUPS = {
 }
 
 console = Console()
-VERSION = "0.5.0"
+VERSION = _VERSION
 
 SMOOTHER_LABELS = {
     "gaussian": "Gaussian convolution",
