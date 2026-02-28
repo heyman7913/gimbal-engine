@@ -14,9 +14,12 @@ NeRF, and Structure-from-Motion pipelines.
 
 ---
 
-![Original vs Kalman RTS stabilization](docs/demo.gif)
+| Gaussian convolution | Kalman-RTS smoother | L1 / Total-Variation |
+|:---:|:---:|:---:|
+| ![](docs/demo_gaussian.gif) | ![](docs/demo_kalman.gif) | ![](docs/demo_l1.gif) |
+| Fast, symmetric | Best quality — optimal | Preserves intentional pans |
 
-*Left: original shaky footage · Right: Kalman-RTS stabilized output*
+*Each clip: original shaky footage (left) vs stabilized output (right)*
 
 ---
 
