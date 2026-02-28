@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cuda-motion-flow"
-version = "1.0.0"
+version = "1.0.1"
 description = "GPU-accelerated video stabilization with COLMAP trajectory export"
 authors = [
     {name = "Himansh Chitkara", email = "himanshchitkara77@gmail.com"}

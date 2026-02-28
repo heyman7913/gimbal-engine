@@ -48,7 +48,7 @@ from .geometry import (
 from .utils import get_video_info, validate_video_file
 from .metrics import compute_all_metrics, StabilizationMetrics
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __all__ = [
     # Primary API
