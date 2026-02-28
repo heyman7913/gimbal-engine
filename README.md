@@ -21,7 +21,7 @@ NeRF, and Structure-from-Motion pipelines.
 
 | Gaussian convolution | Kalman-RTS smoother | L1 / Total-Variation |
 |:---:|:---:|:---:|
-| ![](docs/demo_gaussian.gif) | ![](docs/demo_kalman.gif) | ![](docs/demo_l1.gif) |
+| ![](https://raw.githubusercontent.com/heyman7913/cuda-motion-flow/main/docs/demo_gaussian.gif) | ![](https://raw.githubusercontent.com/heyman7913/cuda-motion-flow/main/docs/demo_kalman.gif) | ![](https://raw.githubusercontent.com/heyman7913/cuda-motion-flow/main/docs/demo_l1.gif) |
 | Fast, symmetric | Best quality — optimal | Preserves intentional pans |
 
 *Each clip: original shaky footage (left) vs stabilized output (right)*
