@@ -8,9 +8,14 @@ The recovered camera motion exports directly to COLMAP for use in Gaussian Splat
 NeRF, and Structure-from-Motion pipelines.
 
 [![PyPI](https://img.shields.io/pypi/v/cuda-motion-flow)](https://pypi.org/project/cuda-motion-flow/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/cuda-motion-flow)](https://pypi.org/project/cuda-motion-flow/)
 [![Python](https://img.shields.io/pypi/pyversions/cuda-motion-flow)](https://pypi.org/project/cuda-motion-flow/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CUDA](https://img.shields.io/badge/CUDA-12%20%7C%2013-76b900.svg)](https://developer.nvidia.com/cuda-downloads)
+[![CuPy](https://img.shields.io/badge/CuPy-cuda12%20%7C%20cuda13-76b900.svg)](https://cupy.dev/)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4.8%2B-5C3EE8.svg)](https://opencv.org/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Checked with mypy](https://img.shields.io/badge/mypy-checked-blue.svg)](https://mypy-lang.org/)
 
 ---
 
