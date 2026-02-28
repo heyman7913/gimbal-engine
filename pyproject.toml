@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cuda-motion-flow"
-version = "0.5.0"
+version = "1.0.0"
 description = "GPU-accelerated video stabilization with COLMAP trajectory export"
 authors = [
     {name = "Himansh Chitkara", email = "himanshchitkara77@gmail.com"}
@@ -18,7 +18,7 @@ keywords = [
     "gaussian-splatting", "colmap", "camera-pose",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
