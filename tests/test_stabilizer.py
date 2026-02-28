@@ -298,8 +298,8 @@ class TestRawKernels:
         import cupy as cp
         img = cp.zeros((64, 64), dtype=cp.float32)
         Gx, Gy = scharr_gradients(img)
-        assert cp.max(cp.abs(Gx)) == pytest.approx(0.0, abs=1e-6)
-        assert cp.max(cp.abs(Gy)) == pytest.approx(0.0, abs=1e-6)
+        assert float(cp.max(cp.abs(Gx))) == pytest.approx(0.0, abs=1e-6)
+        assert float(cp.max(cp.abs(Gy))) == pytest.approx(0.0, abs=1e-6)
 
     def test_shi_tomasi_flat_image(self):
         from cuda_motion_flow.raw_kernels import scharr_gradients, shi_tomasi_response
@@ -307,7 +307,7 @@ class TestRawKernels:
         img = cp.full((64, 64), 128.0, dtype=cp.float32)
         Gx, Gy = scharr_gradients(img)
         resp = shi_tomasi_response(Gx, Gy)
-        assert cp.max(resp) == pytest.approx(0.0, abs=1e-5)
+        assert float(cp.max(resp)) == pytest.approx(0.0, abs=1e-5)
 
 
 @requires_cuda

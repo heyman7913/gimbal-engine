@@ -39,6 +39,7 @@ dependencies = [
     "opencv-python>=4.8",
     "click>=8.0",
     "rich>=13.0",
+    "rich-click>=1.7",
     # CuPy must be installed separately - cupy-cuda12x or cupy-cuda13x both work. Match nvcc --version
 ]
 
