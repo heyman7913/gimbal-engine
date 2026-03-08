@@ -1,0 +1,87 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cuda-motion-flow"
+version = "2.0.0"
+description = "Two interchangeable camera-motion estimators (classical CUDA vs learned IHN) behind one interface, benchmarked head to head for video stabilization."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "heyman7913" }]
+keywords = ["cuda", "video-stabilization", "homography", "optical-flow", "computer-vision"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+
+# torch and cupy must match the host CUDA / GPU architecture. They are installed
+# explicitly inside the container (see Dockerfile) from the matching wheel index.
+# They are listed here so the metadata is complete, but a plain `pip install` on an
+# arbitrary machine is not expected to resolve a Blackwell-compatible build.
+dependencies = [
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "rich>=13.7",
+    "rich-click>=1.8",
+    "click>=8.1",
+    "matplotlib>=3.8",
+    "torch>=2.7",
+    "cupy-cuda12x>=13.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.11"]
+
+[project.scripts]
+cuda-motion-flow = "cuda_motion_flow.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/heyman7913/cuda-motion-flow"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cuda_motion_flow"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# Trained weights are NOT shipped in the wheel; the download helper fetches them.
+# Keep the bundled NUS subset and COCO data out of the wheel as well.
+
+[tool.hatch.build]
+exclude = [
+    "weights/",
+    "data/",
+    "outputs/",
+    "tests/",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+ignore = ["E741"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "cuda: test requires a CUDA device and is skipped otherwise",
+]
