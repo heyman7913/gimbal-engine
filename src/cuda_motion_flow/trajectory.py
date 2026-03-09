@@ -22,7 +22,8 @@ Smoother = Literal["gaussian", "kalman_rts", "l1_tv"]
 def normalize_h(h: np.ndarray) -> np.ndarray:
     """Scale a 3x3 (or stack of) homography so the bottom-right entry is 1."""
     h = np.asarray(h, dtype=np.float64)
-    return h / h[..., 2:3, 2:3]
+    out: np.ndarray = h / h[..., 2:3, 2:3]
+    return out
 
 
 def cumulative_path(pairwise: np.ndarray) -> np.ndarray:
@@ -140,7 +141,8 @@ def _tv_1d(z: np.ndarray, lam: float, iters: int = 400) -> np.ndarray:
         return z.copy()
 
     def diff(x: np.ndarray) -> np.ndarray:
-        return x[1:] - x[:-1]
+        d: np.ndarray = x[1:] - x[:-1]
+        return d
 
     def divt(p: np.ndarray) -> np.ndarray:
         out = np.zeros(n)
@@ -153,4 +155,5 @@ def _tv_1d(z: np.ndarray, lam: float, iters: int = 400) -> np.ndarray:
     for _ in range(iters):
         x = z - lam * divt(p)
         p = np.clip(p + step * diff(x), -1.0, 1.0)
-    return z - lam * divt(p)
+    out: np.ndarray = z - lam * divt(p)
+    return out

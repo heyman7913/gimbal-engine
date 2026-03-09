@@ -38,6 +38,4 @@ class Estimator(abc.ABC):
         if prev_gray.ndim != 2 or curr_gray.ndim != 2:
             raise ValueError("estimators expect single-channel (H, W) grayscale frames")
         if prev_gray.shape != curr_gray.shape:
-            raise ValueError(
-                f"frame shapes differ: {prev_gray.shape} vs {curr_gray.shape}"
-            )
+            raise ValueError(f"frame shapes differ: {prev_gray.shape} vs {curr_gray.shape}")

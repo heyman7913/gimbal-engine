@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import cupy as cp
 
-_CACHE: dict[str, "cp.RawKernel"] = {}
+_CACHE: dict[str, cp.RawKernel] = {}
 
 
-def get_kernel(name: str, source: str) -> "cp.RawKernel":
+def get_kernel(name: str, source: str) -> cp.RawKernel:
     """Compile (once) and return the named kernel from the given source."""
     import cupy as cp
 

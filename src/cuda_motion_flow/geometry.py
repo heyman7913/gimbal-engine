@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -26,9 +27,7 @@ class CameraIntrinsics:
     height: int
 
     def matrix(self) -> np.ndarray:
-        return np.array(
-            [[self.fx, 0.0, self.cx], [0.0, self.fy, self.cy], [0.0, 0.0, 1.0]]
-        )
+        return np.array([[self.fx, 0.0, self.cx], [0.0, self.fy, self.cy], [0.0, 0.0, 1.0]])
 
 
 def estimate_intrinsics(width: int, height: int) -> CameraIntrinsics:
@@ -66,10 +65,13 @@ def rotation_to_quaternion(r: np.ndarray) -> np.ndarray:
         y = (m[1, 2] + m[2, 1]) / s
         z = 0.25 * s
     q = np.array([w, x, y, z])
-    return q / np.linalg.norm(q)
+    unit: np.ndarray = q / np.linalg.norm(q)
+    return unit
 
 
-def _select_decomposition(rs: list, ts: list, ns: list) -> tuple[np.ndarray, np.ndarray]:
+def _select_decomposition(
+    rs: list[np.ndarray], ts: list[np.ndarray], ns: list[np.ndarray]
+) -> tuple[np.ndarray, np.ndarray]:
     """Pick the physically plausible solution: plane facing the camera, smallest rotation."""
     best = None
     best_angle = np.inf
@@ -88,7 +90,7 @@ def _select_decomposition(rs: list, ts: list, ns: list) -> tuple[np.ndarray, np.
 @dataclass
 class CameraTrajectory:
     intrinsics: CameraIntrinsics
-    frames: list[dict] = field(default_factory=list)
+    frames: list[dict[str, Any]] = field(default_factory=list)
 
     def export_json(self, path: str | Path) -> None:
         k = self.intrinsics
@@ -135,7 +137,7 @@ def build_trajectory(pairwise: np.ndarray, intrinsics: CameraIntrinsics) -> Came
     return traj
 
 
-def _frame_entry(idx: int, r: np.ndarray, t: np.ndarray) -> dict:
+def _frame_entry(idx: int, r: np.ndarray, t: np.ndarray) -> dict[str, Any]:
     center = (-r.T @ t).tolist()
     return {
         "id": idx,

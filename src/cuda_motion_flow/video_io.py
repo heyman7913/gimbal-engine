@@ -49,7 +49,7 @@ def write_video(path: str | Path, frames: list[np.ndarray], fps: float) -> None:
         raise ValueError("no frames to write")
     h, w = frames[0].shape[:2]
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
     writer = cv2.VideoWriter(str(path), fourcc, fps, (w, h))
     if not writer.isOpened():
         raise RuntimeError(f"cannot open video writer for {path}")

@@ -22,7 +22,7 @@ def cuda_is_available() -> bool:
     try:
         import cupy as cp
 
-        return cp.cuda.runtime.getDeviceCount() > 0
+        return bool(cp.cuda.runtime.getDeviceCount() > 0)
     except Exception:
         return False
 
@@ -59,4 +59,4 @@ def used_vram_mb() -> float:
     import cupy as cp
 
     free, total = cp.cuda.runtime.memGetInfo()
-    return (total - free) / (1024.0 * 1024.0)
+    return float(total - free) / (1024.0 * 1024.0)

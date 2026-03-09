@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     import cupy as cp
 
 
-def warp_frame(src: "cp.ndarray", b: np.ndarray) -> "cp.ndarray":
+def warp_frame(src: cp.ndarray, b: np.ndarray) -> cp.ndarray:
     """Warp a uint8 (H, W, C) device frame by homography B (source -> destination).
 
     Returns a same-size device frame; out-of-frame pixels are black.
@@ -45,7 +45,8 @@ def _frame_quad(b: np.ndarray, w: int, h: int) -> np.ndarray:
     """Map the four source corners through B into destination coordinates."""
     corners = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float64)
     pts = np.concatenate([corners, np.ones((4, 1))], axis=1) @ b.T
-    return pts[:, :2] / pts[:, 2:3]
+    quad: np.ndarray = pts[:, :2] / pts[:, 2:3]
+    return quad
 
 
 def compute_crop_box(transforms: np.ndarray, w: int, h: int) -> tuple[int, int, int, int]:
