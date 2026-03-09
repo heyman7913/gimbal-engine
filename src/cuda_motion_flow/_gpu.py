@@ -34,3 +34,29 @@ def require_cuda() -> None:
             "cuda-motion-flow requires an NVIDIA CUDA device visible to both torch and "
             "CuPy. No usable device was found. This project has no CPU fallback."
         )
+
+
+def device_synchronize() -> None:
+    """Block until all queued GPU work finishes, across both torch and CuPy streams.
+
+    The two frameworks issue work on different streams, so timing that must bracket either
+    one synchronizes the whole device rather than a single stream.
+    """
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+    except Exception:
+        pass
+    import cupy as cp
+
+    cp.cuda.runtime.deviceSynchronize()
+
+
+def used_vram_mb() -> float:
+    """Currently used device memory in MiB (total minus free)."""
+    import cupy as cp
+
+    free, total = cp.cuda.runtime.memGetInfo()
+    return (total - free) / (1024.0 * 1024.0)
