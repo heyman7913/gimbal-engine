@@ -111,7 +111,8 @@ class FeatureEncoder(nn.Module):
         self.res2 = _ResBlock(dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.res2(self.res1(self.stem(x)))
+        out: torch.Tensor = self.res2(self.res1(self.stem(x)))
+        return out
 
 
 class _OffsetHead(nn.Module):
@@ -131,7 +132,8 @@ class _OffsetHead(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.mlp(self.body(x).flatten(1))
+        out: torch.Tensor = self.mlp(self.body(x).flatten(1))
+        return out
 
 
 def _corner_template(size: int, device: torch.device | None = None) -> torch.Tensor:
@@ -143,6 +145,10 @@ def _corner_template(size: int, device: torch.device | None = None) -> torch.Ten
 class IHN(nn.Module):
     """Iterative homography estimator: correlation-driven refinement of the 4-point offsets."""
 
+    corners: torch.Tensor
+    s_to_feat: torch.Tensor
+    s_from_feat: torch.Tensor
+
     def __init__(self, size: int = 128, dim: int = 96, radius: int = 4, iters: int = 6) -> None:
         super().__init__()
         self.size = size
@@ -152,6 +158,13 @@ class IHN(nn.Module):
         self.use_fused = False  # flipped on only after the gradcheck gate passes
         self.encoder = FeatureEncoder(dim)
         self.head = _OffsetHead(dim + (2 * radius + 1) ** 2)
+        # content mask for unsupervised photometric loss (Phase B only)
+        self.mask_head = nn.Sequential(
+            nn.Conv2d(dim, 64, 3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 1, 1),
+            nn.Sigmoid(),
+        )
         self.register_buffer("corners", _corner_template(size))
         s = 1.0 / self.stride
         self.register_buffer("s_to_feat", torch.tensor([[s, 0, 0], [0, s, 0], [0, 0, 1.0]]))
@@ -161,6 +174,11 @@ class IHN(nn.Module):
 
     def _h_feat(self, h: torch.Tensor) -> torch.Tensor:
         return self.s_to_feat @ h @ self.s_from_feat
+
+    def features_and_mask(self, img: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Encoder features and content mask for the unsupervised photometric loss."""
+        feat = self.encoder(img)
+        return feat, self.mask_head(feat)
 
     def forward(self, img_a: torch.Tensor, img_b: torch.Tensor) -> list[torch.Tensor]:
         """Return the list of 4-point offsets (B, 4, 2), one per refinement iteration."""
@@ -188,6 +206,8 @@ class IHN(nn.Module):
 
 class RegressionHomographyNet(nn.Module):
     """DeTone-style single-shot baseline: predict all eight offsets at once (the ablation)."""
+
+    corners: torch.Tensor
 
     def __init__(self, size: int = 128, dim: int = 96) -> None:
         super().__init__()
