@@ -85,3 +85,7 @@ addopts = "-q"
 markers = [
     "cuda: test requires a CUDA device and is skipped otherwise",
 ]
+filterwarnings = [
+    # CuPy 14 deprecated ExternalStream; its replacement has an incompatible signature here
+    "ignore:ExternalStream is deprecated:DeprecationWarning",
+]
