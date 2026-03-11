@@ -21,7 +21,7 @@ from .model import IHN, RegressionHomographyNet
 from .train import PhaseAConfig, PhaseBConfig, evaluate_mace, phase_b_with_guard, train_supervised
 
 
-def _build_pairs(clips: list[Clip], patch: int) -> torch.Tensor:
+def build_pairs(clips: list[Clip], patch: int) -> torch.Tensor:
     raw = video_frame_pairs([c.path for c in clips], patch=patch)
     if not raw:
         return torch.empty(0, 2, patch, patch)
@@ -29,7 +29,7 @@ def _build_pairs(clips: list[Clip], patch: int) -> torch.Tensor:
     return torch.from_numpy(arr)
 
 
-def _stability_metric(model: IHN, clips: list[Clip], log: Callable[[str], None]) -> float:
+def stability_metric(model: IHN, clips: list[Clip], log: Callable[[str], None]) -> float:
     """Mean stabilized-path stability over held-out clips, using the in-training model."""
     from ..estimators.learned import LearnedEstimator
 
@@ -82,11 +82,11 @@ def run_two_phase(
     reg_mace = evaluate_mace(reg, val)
 
     log("Phase B: unsupervised photometric fine-tuning (guarded)")
-    pairs = _build_pairs(phaseb_train, patch=128)
+    pairs = build_pairs(phaseb_train, patch=128)
     result_b: dict[str, Any]
     if pairs.shape[0] > 0 and guard_val:
         result_b = phase_b_with_guard(
-            ihn, pairs, lambda m: _stability_metric(m, guard_val, log), phase_b
+            ihn, pairs, lambda m: stability_metric(m, guard_val, log), phase_b
         )
     else:
         result_b = {"adopted": False, "note": "no phase-b data"}
