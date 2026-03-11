@@ -44,6 +44,19 @@ def test_fused_backward_matches_reference():
     assert torch.allclose(fb1.grad, fb2.grad, atol=1e-4, rtol=1e-4)
 
 
+def test_fused_runs_under_bfloat16():
+    import torch
+
+    from cuda_motion_flow.learned.correlation import FusedLocalCorrelation
+
+    fa = torch.randn(2, 8, 10, 12, device="cuda", dtype=torch.bfloat16, requires_grad=True)
+    fb = torch.randn(2, 8, 10, 12, device="cuda", dtype=torch.bfloat16, requires_grad=True)
+    out = FusedLocalCorrelation.apply(fa, fb, 3)
+    assert out.dtype == torch.bfloat16
+    out.sum().backward()
+    assert fa.grad is not None and torch.isfinite(fa.grad.float()).all()
+
+
 def test_fused_gradcheck_double():
     import torch
 

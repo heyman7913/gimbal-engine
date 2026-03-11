@@ -173,6 +173,12 @@ class FusedLocalCorrelation(torch.autograd.Function):
     def forward(ctx: Any, fa: torch.Tensor, fb: torch.Tensor, radius: int) -> torch.Tensor:
         import numpy as np
 
+        # CuPy has no bfloat16/half; run the kernel in fp32 and cast back. Gradients still
+        # flow to the original-dtype inputs (cast in backward).
+        orig_dtype = fa.dtype
+        if orig_dtype not in (torch.float32, torch.float64):
+            fa = fa.float()
+            fb = fb.float()
         b, c, h, w = fa.shape
         k = (2 * radius + 1) ** 2
         fa_c = fa.contiguous()
@@ -185,13 +191,14 @@ class FusedLocalCorrelation(torch.autograd.Function):
         _launch(fwd, b * k * h * w, (_cp_view(fa_c), _cp_view(fb_c), _cp_view(out), *ints, inv))
         ctx.save_for_backward(fa_c, fb_c)
         ctx.radius = radius
-        return out
+        ctx.orig_dtype = orig_dtype
+        return out.to(orig_dtype)
 
     @staticmethod
     def backward(ctx: Any, grad: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, None]:
         import numpy as np
 
-        fa, fb = ctx.saved_tensors  # already contiguous from forward
+        fa, fb = ctx.saved_tensors  # contiguous fp32/fp64 from forward
         radius = ctx.radius
         b, c, h, w = fa.shape
         gfa = torch.empty_like(fa)
@@ -200,10 +207,10 @@ class FusedLocalCorrelation(torch.autograd.Function):
         npdt = np.float64 if fa.dtype == torch.float64 else np.float32
         inv = npdt(1.0 / math.sqrt(c))
         ints = (np.int32(b), np.int32(c), np.int32(h), np.int32(w), np.int32(radius))
-        grad_c = grad.contiguous()
+        grad_c = grad.to(fa.dtype).contiguous()
         _launch(bwd_fa, b * c * h * w, (_cp_view(grad_c), _cp_view(fb), _cp_view(gfa), *ints, inv))
         _launch(bwd_fb, b * c * h * w, (_cp_view(grad_c), _cp_view(fa), _cp_view(gfb), *ints, inv))
-        return gfa, gfb, None
+        return gfa.to(ctx.orig_dtype), gfb.to(ctx.orig_dtype), None
 
 
 def local_correlation(
