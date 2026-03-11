@@ -4,6 +4,7 @@ interface, never which concrete estimator it was handed.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -13,6 +14,8 @@ from .estimators.base import Estimator
 from .trajectory import Smoother
 from .video_io import to_gray
 from .warp import compute_crop_box, warp_frame
+
+ProgressFn = Callable[[str, int, int], None]
 
 
 @dataclass
@@ -33,6 +36,7 @@ def stabilize(
     strength: float = 0.6,
     auto_crop: bool = True,
     preserve_resolution: bool = True,
+    progress: ProgressFn | None = None,
 ) -> StabilizeResult:
     """Stabilize a decoded clip with the given estimator and return frames plus diagnostics."""
     import cupy as cp
@@ -47,6 +51,8 @@ def stabilize(
     pairwise = np.empty((len(frames) - 1, 3, 3), dtype=np.float64)
     for i in range(1, len(frames)):
         pairwise[i - 1] = estimator.estimate(grays[i - 1], grays[i])
+        if progress is not None:
+            progress("estimate", i, len(frames) - 1)
 
     cumulative = trajectory.cumulative_path(pairwise)
     smoothed = trajectory.smooth_path(cumulative, smoother, strength)
@@ -56,7 +62,7 @@ def stabilize(
     li, ti, ri, bi = crop_box
 
     out: list[np.ndarray] = []
-    for frame, b in zip(frames, transforms, strict=True):
+    for i, (frame, b) in enumerate(zip(frames, transforms, strict=True)):
         dev = cp.asarray(frame)
         warped = warp_frame(dev, b)
         host = cp.asnumpy(warped)
@@ -66,6 +72,8 @@ def stabilize(
 
             cropped = cv2.resize(cropped, (w, h), interpolation=cv2.INTER_LINEAR)
         out.append(cropped)
+        if progress is not None:
+            progress("warp", i + 1, len(frames))
 
     result = StabilizeResult(
         frames=out,
