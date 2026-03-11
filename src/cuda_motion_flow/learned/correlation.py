@@ -213,3 +213,18 @@ def local_correlation(
         out: torch.Tensor = FusedLocalCorrelation.apply(fa, fb, radius)  # type: ignore[no-untyped-call]
         return out
     return local_correlation_reference(fa, fb, radius)
+
+
+def fused_passes_gradcheck(radius: int = 2) -> bool:
+    """Gate: the fused kernel may be used in training only if it matches the reference here."""
+    torch.manual_seed(0)
+    fa = torch.randn(2, 4, 5, 6, device="cuda", dtype=torch.float64, requires_grad=True)
+    fb = torch.randn(2, 4, 5, 6, device="cuda", dtype=torch.float64, requires_grad=True)
+
+    def fn(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+        return FusedLocalCorrelation.apply(a, b, radius)  # type: ignore[no-any-return,no-untyped-call]
+
+    try:
+        return bool(torch.autograd.gradcheck(fn, (fa, fb), eps=1e-6, atol=1e-4))
+    except Exception:
+        return False

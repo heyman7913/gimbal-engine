@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import json
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -19,6 +20,7 @@ import numpy as np
 
 from .._gpu import device_synchronize, used_vram_mb
 from ..estimators.base import Estimator
+from .datasets import Clip
 
 
 @dataclass
@@ -113,6 +115,138 @@ def _flatten(r: ClipResult) -> dict[str, object]:
     timing = d.pop("timing")
     d.update({f"timing_{k}": v for k, v in timing.items()})
     return d
+
+
+def correlation_microbenchmark(
+    b: int = 32, c: int = 96, h: int = 16, w: int = 16, radius: int = 4, iters: int = 50
+) -> dict[str, float]:
+    """Time fused vs reference local correlation (forward+backward), latency and peak memory."""
+    import torch
+
+    from ..learned.correlation import FusedLocalCorrelation, local_correlation_reference
+
+    fa = torch.randn(b, c, h, w, device="cuda", requires_grad=True)
+    fb = torch.randn(b, c, h, w, device="cuda", requires_grad=True)
+
+    def run(fused: bool) -> tuple[float, float]:
+        def step() -> None:
+            fa.grad = None
+            fb.grad = None
+            out = (
+                FusedLocalCorrelation.apply(fa, fb, radius)  # type: ignore[no-untyped-call]
+                if fused
+                else (local_correlation_reference(fa, fb, radius))
+            )
+            out.sum().backward()
+
+        for _ in range(5):
+            step()
+        torch.cuda.synchronize()
+        torch.cuda.reset_peak_memory_stats()
+        start = torch.cuda.Event(enable_timing=True)  # type: ignore[no-untyped-call]
+        end = torch.cuda.Event(enable_timing=True)  # type: ignore[no-untyped-call]
+        start.record()
+        for _ in range(iters):
+            step()
+        end.record()
+        torch.cuda.synchronize()
+        ms = start.elapsed_time(end) / iters
+        peak = torch.cuda.max_memory_allocated() / 1e6
+        return ms, peak
+
+    ref_ms, ref_mb = run(False)
+    fused_ms, fused_mb = run(True)
+    return {
+        "reference_ms": ref_ms,
+        "reference_peak_mb": ref_mb,
+        "fused_ms": fused_ms,
+        "fused_peak_mb": fused_mb,
+        "speedup": ref_ms / fused_ms if fused_ms > 0 else 0.0,
+        "memory_ratio": ref_mb / fused_mb if fused_mb > 0 else 0.0,
+    }
+
+
+def environment_info() -> dict[str, str]:
+    import cupy as cp
+    import torch
+
+    cap = torch.cuda.get_device_capability(0)
+    return {
+        "gpu": torch.cuda.get_device_name(0),
+        "compute_capability": f"sm_{cap[0]}{cap[1]}",
+        "torch": torch.__version__,
+        "cupy": cp.__version__,
+        "driver": str(torch.version.cuda),
+    }
+
+
+def run_benchmark(
+    clips: list[Clip],
+    estimators: dict[str, Estimator],
+    smoother: str = "kalman_rts",
+    strength: float = 0.6,
+    log: Callable[[str], None] = print,
+) -> BenchmarkReport:
+    """Run every estimator on every clip; collect the triplet, timing, and the microbench."""
+    from ..pipeline import stabilize
+    from ..video_io import read_video, to_gray
+
+    report = BenchmarkReport(environment=environment_info())
+    for clip in clips:
+        frames, _ = read_video(clip.path)
+        grays = [to_gray(f) for f in frames]
+        pairs = [(grays[i - 1], grays[i]) for i in range(1, len(grays))]
+        for name, est in estimators.items():
+            result = stabilize(frames, est, smoother=smoother, strength=strength)  # type: ignore[arg-type]
+            timing = time_estimator(est, pairs)
+            m = result.metrics
+            report.results.append(
+                ClipResult(
+                    clip=clip.path.name,
+                    category=clip.category,
+                    estimator=name,
+                    cropping_ratio=m["cropping_ratio"],
+                    distortion_value=m["distortion_value"],
+                    stability_score=m["stability_score"],
+                    stability_input=m["stability_input"],
+                    timing=timing,
+                )
+            )
+            log(
+                f"{clip.category:14s} {clip.path.name:20s} {name:9s} "
+                f"stab {m['stability_score']:.3f} crop {m['cropping_ratio']:.3f} "
+                f"dist {m['distortion_value']:.3f} fps {timing.fps:.1f}"
+            )
+    report.correlation_microbench = correlation_microbenchmark()
+    return report
+
+
+def plot_report(report: BenchmarkReport, out_path: str | Path) -> None:
+    """Grouped bar chart of stability score per category, classical vs ihn."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    table = category_table(report)
+    cats = list(table.keys())
+    ests = sorted({e for v in table.values() for e in v})
+    x = np.arange(len(cats))
+    width = 0.8 / max(1, len(ests))
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for i, est in enumerate(ests):
+        vals = [table[c].get(est, {}).get("stability_score", 0.0) for c in cats]
+        ax.bar(x + i * width, vals, width, label=est)
+    ax.set_xticks(x + width * (len(ests) - 1) / 2)
+    ax.set_xticklabels(cats, rotation=20)
+    ax.set_ylabel("stability score")
+    ax.set_title("NUS stability by category: classical vs IHN")
+    ax.legend()
+    fig.tight_layout()
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
 
 
 def category_table(report: BenchmarkReport) -> dict[str, dict[str, dict[str, float]]]:
