@@ -64,6 +64,8 @@ def fetch_nus(categories: tuple[str, ...] = NUS_CATEGORIES, dest: Path | None = 
         if cat_dir.exists() and any(cat_dir.iterdir()):
             continue
         zip_path = out / f"{cat}.zip"
+        if zip_path.exists() and not _is_valid_zip(zip_path):
+            zip_path.unlink()  # partial/corrupt download from a previous interrupted run
         if not zip_path.exists():
             urllib.request.urlretrieve(NUS_BASE + f"data/{cat}.zip", zip_path)  # noqa: S310
         cat_dir.mkdir(exist_ok=True)
@@ -72,6 +74,15 @@ def fetch_nus(categories: tuple[str, ...] = NUS_CATEGORIES, dest: Path | None = 
                 if m.lower().endswith((".avi", ".mp4", ".mov")):
                     (cat_dir / Path(m).name).write_bytes(zf.read(m))
     return out
+
+
+def _is_valid_zip(path: Path) -> bool:
+    try:
+        with zipfile.ZipFile(path) as zf:
+            zf.namelist()
+        return True
+    except zipfile.BadZipFile:
+        return False
 
 
 def nus_clips(
