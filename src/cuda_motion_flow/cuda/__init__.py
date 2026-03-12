@@ -1,1 +1,1 @@
-"""CuPy RawKernel sources and the classical optical-flow / RANSAC building blocks."""
+"""The classical optical-flow / RANSAC pieces. Kernels live in csrc/, reached via _bridge."""
