@@ -9,6 +9,7 @@ disjoint splits so reported numbers are never measured on training footage.
 
 from __future__ import annotations
 
+import urllib.error
 import urllib.request
 import zipfile
 from dataclasses import dataclass
@@ -67,7 +68,7 @@ def fetch_nus(categories: tuple[str, ...] = NUS_CATEGORIES, dest: Path | None = 
         if zip_path.exists() and not _is_valid_zip(zip_path):
             zip_path.unlink()  # partial/corrupt download from a previous interrupted run
         if not zip_path.exists():
-            urllib.request.urlretrieve(NUS_BASE + f"data/{cat}.zip", zip_path)  # noqa: S310
+            _download_with_retry(NUS_BASE + f"data/{cat}.zip", zip_path)
         cat_dir.mkdir(exist_ok=True)
         with zipfile.ZipFile(zip_path) as zf:
             for m in zf.namelist():
@@ -85,6 +86,19 @@ def _is_valid_zip(path: Path) -> bool:
         return False
 
 
+def _download_with_retry(url: str, dest: Path, attempts: int = 8) -> None:
+    """Download with retries; the NUS host drops connections mid-transfer."""
+    for i in range(attempts):
+        try:
+            urllib.request.urlretrieve(url, dest)  # noqa: S310
+            return
+        except (urllib.error.URLError, urllib.error.ContentTooShortError, TimeoutError):
+            if dest.exists():
+                dest.unlink()
+            if i == attempts - 1:
+                raise
+
+
 def nus_clips(
     root: Path | None = None, per_category: int = 4, benchmark_fraction: float = 0.5
 ) -> list[Clip]:
@@ -99,7 +113,13 @@ def nus_clips(
         cat_dir = base / cat
         if not cat_dir.exists():
             continue
-        files = sorted(p for p in cat_dir.iterdir() if p.suffix.lower() in {".avi", ".mp4", ".mov"})
+        # the dataset ships both the shaky originals and the authors' stabilized results
+        # (named *stb.avi); benchmark only the originals
+        files = sorted(
+            p
+            for p in cat_dir.iterdir()
+            if p.suffix.lower() in {".avi", ".mp4", ".mov"} and "stb" not in p.stem.lower()
+        )
         files = files[:per_category]
         n_bench = max(1, int(round(len(files) * benchmark_fraction)))
         for i, f in enumerate(files):
