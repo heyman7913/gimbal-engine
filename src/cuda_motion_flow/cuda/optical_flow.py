@@ -9,60 +9,26 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
-from .kernels import (
-    GAUSSIAN_DOWNSAMPLE_F32,
-    SCHARR_GRADIENT_F32,
-    SHI_TOMASI_RESPONSE_F32,
-    get_kernel,
-)
+from ._bridge import ext, to_cupy, to_torch
 
 if TYPE_CHECKING:
     import cupy as cp
 
 
-def _grid(w: int, h: int, block: tuple[int, int] = (16, 16)) -> tuple[int, int]:
-    return ((w + block[0] - 1) // block[0], (h + block[1] - 1) // block[1])
-
-
 def scharr_gradients(img: cp.ndarray) -> tuple[cp.ndarray, cp.ndarray]:
     """First derivatives (ix, iy) of a float32 image, normalized like cv2.Scharr / 32."""
-    import cupy as cp
-
-    h, w = img.shape
-    ix = cp.empty_like(img)
-    iy = cp.empty_like(img)
-    kernel = get_kernel("scharr_gradient_f32", SCHARR_GRADIENT_F32)
-    block = (16, 16)
-    kernel(_grid(w, h, block), block, (img, ix, iy, np.int32(h), np.int32(w)))
-    return ix, iy
+    ix_t, iy_t = ext().scharr_gradient(to_torch(img))
+    return to_cupy(ix_t), to_cupy(iy_t)
 
 
 def shi_tomasi_response(ix: cp.ndarray, iy: cp.ndarray, radius: int = 3) -> cp.ndarray:
     """Min-eigenvalue corner response over a (2*radius+1) box window."""
-    import cupy as cp
-
-    h, w = ix.shape
-    resp = cp.empty_like(ix)
-    kernel = get_kernel("shi_tomasi_response_f32", SHI_TOMASI_RESPONSE_F32)
-    block = (16, 16)
-    kernel(_grid(w, h, block), block, (ix, iy, resp, np.int32(h), np.int32(w), np.int32(radius)))
-    return resp
+    return to_cupy(ext().shi_tomasi_response(to_torch(ix), to_torch(iy), radius))
 
 
 def downsample(img: cp.ndarray) -> cp.ndarray:
     """2x Gaussian-pyramid downsample (cv2.pyrDown convention)."""
-    import cupy as cp
-
-    sh, sw = img.shape
-    dh, dw = (sh + 1) // 2, (sw + 1) // 2
-    dst = cp.empty((dh, dw), dtype=cp.float32)
-    kernel = get_kernel("gaussian_downsample_f32", GAUSSIAN_DOWNSAMPLE_F32)
-    block = (16, 16)
-    args = (img, dst, np.int32(sh), np.int32(sw), np.int32(dh), np.int32(dw))
-    kernel(_grid(dw, dh, block), block, args)
-    return dst
+    return to_cupy(ext().gaussian_downsample(to_torch(img)))
 
 
 def build_pyramid(img: cp.ndarray, levels: int) -> list[cp.ndarray]:

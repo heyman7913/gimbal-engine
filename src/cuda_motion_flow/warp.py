@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from .cuda.kernels import WARP_BILINEAR_U8, get_kernel
+from .cuda._bridge import ext, to_cupy, to_torch
 
 if TYPE_CHECKING:
     import cupy as cp
@@ -23,21 +23,14 @@ def warp_frame(src: cp.ndarray, b: np.ndarray) -> cp.ndarray:
     Returns a same-size device frame; out-of-frame pixels are black.
     """
     import cupy as cp
+    import torch
 
     if src.dtype != cp.uint8 or src.ndim != 3:
         raise ValueError("warp_frame expects a uint8 (H, W, C) device array")
-    h, w, ch = src.shape
-    h_inv = cp.asarray(np.linalg.inv(b).ravel(), dtype=cp.float64)
-    dst = cp.empty_like(src)
-    kernel = get_kernel("warp_bilinear_u8", WARP_BILINEAR_U8)
-    block = (16, 16)
-    grid = ((w + block[0] - 1) // block[0], (h + block[1] - 1) // block[1])
-    kernel(
-        grid,
-        block,
-        (src, dst, h_inv, np.int32(h), np.int32(w), np.int32(h), np.int32(w), np.int32(ch)),
-    )
-    return dst
+    h, w, _ = src.shape
+    h_inv = torch.from_numpy(np.ascontiguousarray(np.linalg.inv(b))).cuda()
+    dst_t = ext().warp_bilinear(to_torch(src), h_inv, h, w)
+    return to_cupy(dst_t)
 
 
 def _frame_quad(b: np.ndarray, w: int, h: int) -> np.ndarray:
