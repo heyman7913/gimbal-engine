@@ -49,16 +49,39 @@ class LearnedEstimator(Estimator):
 
         self._validate_pair(prev_gray, curr_gray)
         h0, w0 = prev_gray.shape
-        a = cv2.resize(prev_gray, (self.size, self.size), interpolation=cv2.INTER_AREA)
-        b = cv2.resize(curr_gray, (self.size, self.size), interpolation=cv2.INTER_AREA)
+        # The network was trained on undistorted square patches, so feed it an undistorted
+        # centre square crop rather than an anisotropic full-frame resize. The estimated
+        # camera motion is global, so it applies to the whole frame.
+        side = min(h0, w0)
+        cx0, cy0 = (w0 - side) // 2, (h0 - side) // 2
+        a_crop = prev_gray[cy0 : cy0 + side, cx0 : cx0 + side]
+        b_crop = curr_gray[cy0 : cy0 + side, cx0 : cx0 + side]
+        a = cv2.resize(a_crop, (self.size, self.size), interpolation=cv2.INTER_AREA)
+        b = cv2.resize(b_crop, (self.size, self.size), interpolation=cv2.INTER_AREA)
 
         with torch.no_grad():
             ta = torch.from_numpy(a).cuda().float().div_(255.0)[None, None]
             tb = torch.from_numpy(b).cuda().float().div_(255.0)[None, None]
-            h_patch = self.model.predict(ta, tb)[0].double().cpu().numpy()
+            h_sq = self.model.predict(ta, tb)[0].double().cpu().numpy()
 
-        # S maps full-resolution pixels to the square patch grid (anisotropic)
-        s = np.diag([self.size / w0, self.size / h0, 1.0])
-        h_full = np.linalg.inv(s) @ h_patch @ s
-        result: np.ndarray = h_full / h_full[2, 2]
+        # T maps full-frame pixels into the square-crop grid: translate to the crop, then scale
+        scale = self.size / side
+        t = np.array([[scale, 0, -scale * cx0], [0, scale, -scale * cy0], [0, 0, 1.0]])
+        h_full = np.linalg.inv(t) @ h_sq @ t
+        h_full = h_full / h_full[2, 2]
+
+        # real inter-frame camera motion is near-rigid; reject a degenerate prediction and fall
+        # back to identity for that frame. Checks: affine anisotropy, area scale, and the
+        # perspective magnitude across the frame (h31, h32) which otherwise accumulates into
+        # severe shear over a clip.
+        sv = np.linalg.svd(h_full[:2, :2], compute_uv=False)
+        perspective = abs(h_full[2, 0]) * w0 + abs(h_full[2, 1]) * h0
+        if (
+            sv[1] < 1e-6
+            or sv[0] / sv[1] > 1.5
+            or not (0.5 < sv[0] * sv[1] < 2.0)
+            or perspective > 0.05
+        ):
+            return np.eye(3, dtype=np.float64)
+        result: np.ndarray = h_full
         return result
