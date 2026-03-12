@@ -1,10 +1,8 @@
-"""Head-to-head benchmark: run each estimator over the same clips, measure quality and cost,
-and emit machine-readable result files.
+"""The head-to-head benchmark: run both estimators on the same clips and write the results out.
 
-Timing note: GPU kernel launches are asynchronous, so the device is synchronized before and
-after every measured call. Per-call latency (p50/p95) is measured with each call individually
-bracketed by a device sync; throughput (FPS) is measured over a synchronized batch so the
-per-call sync overhead is excluded. Seeds and deterministic flags are set by the caller.
+One thing to be careful about: GPU calls are async, so timing them naively gives nonsense. I
+sync the device around the measured work. For per-call latency I sync around each call, and for
+throughput I time a whole batch with a single sync at the end so the sync cost isn't counted.
 """
 
 from __future__ import annotations

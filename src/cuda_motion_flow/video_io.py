@@ -1,7 +1,7 @@
-"""Video decode/encode and grayscale conversion (OpenCV).
+"""Reading and writing video with OpenCV.
 
-Decoding and encoding are host-side I/O, not the GPU compute path. Frames are returned as
-uint8 BGR (H, W, 3); the pipeline uploads them to the device for warping.
+Just plain CPU I/O, not part of the GPU work. Frames come back as uint8 BGR and the pipeline
+uploads them to the device itself.
 """
 
 from __future__ import annotations

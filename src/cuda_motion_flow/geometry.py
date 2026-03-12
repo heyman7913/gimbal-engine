@@ -1,9 +1,9 @@
-"""Camera trajectory from inter-frame homographies, exported to COLMAP or JSON.
+"""Turn the per-frame homographies into a camera trajectory and write it out for COLMAP/JSON.
 
-This is the only 3D-adjacent feature and it is a front-end export, not reconstruction. Pose
-recovery from a homography assumes a dominant plane or near-rotational motion, so the export
-is an approximation suitable for seeding an SfM / Gaussian-Splatting pipeline, not a metric
-reconstruction. It is gated to the homography estimators (both tracks qualify).
+This is the only 3D-ish feature, and it's just an export, not real reconstruction. Recovering a
+pose from a homography assumes the scene is roughly planar or the camera mostly rotates, so it's
+an approximation - good enough to seed something like an SfM or Gaussian-Splatting pipeline, not
+a metric model.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Classical estimator: Shi-Tomasi corners + pyramidal LK + RANSAC homography, all on GPU."""
+"""The classical estimator: find corners, track them with LK, fit a homography with RANSAC."""
 
 from __future__ import annotations
 
@@ -19,8 +19,9 @@ class ClassicalEstimator(Estimator):
         self.ransac_threshold = ransac_threshold
 
     def warmup(self, height: int, width: int) -> None:
+        # run once up front so the kernels compile here and not during timing
         dummy = np.zeros((height, width), dtype=np.uint8)
-        dummy[:: max(1, height // 16), :] = 255  # some structure so corners exist
+        dummy[:: max(1, height // 16), :] = 255  # draw a grid so there are corners to find
         dummy[:, :: max(1, width // 16)] = 255
         self.estimate(dummy, dummy)
 

@@ -1,9 +1,9 @@
-"""Two-phase training.
+"""The two training phases.
 
-Phase A (supervised): drive synthetic-validation MACE to a low plateau; early-stop on the
-metric rather than a fixed step count. Phase B (unsupervised): photometric fine-tuning on real
-video, adopted only if it measurably improves a held-out stabilization metric, otherwise the
-Phase-A weights are kept. Both outcomes are returned so the value of Phase B is a measurement.
+Phase A is supervised and stops once the validation MACE stops improving, not after a fixed
+number of steps. Phase B fine-tunes on real video without labels, but I only keep its weights
+if a held-out stability number actually goes up - if not, I throw them away and stick with
+Phase A. Either way the result is reported so Phase B has to earn its place.
 """
 
 from __future__ import annotations

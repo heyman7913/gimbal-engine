@@ -1,11 +1,11 @@
-"""Training losses.
+"""The training losses.
 
-Supervised (Phase A): iteration-weighted L1 on the 4-point corner offsets, plus MACE (mean
-average corner error in pixels) as the reported metric.
+Phase A is supervised: L1 on the corner offsets (weighting the later iterations more), and I
+report MACE, the average corner error in pixels.
 
-Unsupervised (Phase B): photometric loss in the learned feature space, weighted by a content
-mask. The mask weighting is normalized by its own sum, so scaling the mask down does not lower
-the loss; this is what stops the degenerate all-zero (M -> 0) solution.
+Phase B is unsupervised: a photometric loss in feature space, weighted by a learned mask. The
+trick is to divide by the mask's own sum, otherwise the network would just push the mask to
+zero to make the loss vanish.
 """
 
 from __future__ import annotations
@@ -42,8 +42,7 @@ def photometric_feature_loss(
     fb_w = homography_warp(fb, h_feat)
     mb_w = homography_warp(mb, h_feat)
 
-    weight = ma * mb_w  # (B, 1, h, w); high only where both views are confident
+    weight = ma * mb_w  # only trust pixels both frames are confident about
     diff = (fa - fb_w).abs().mean(dim=1, keepdim=True)
-    # normalization by the mask sum makes the loss invariant to the mask scale, so the mask
-    # cannot collapse to zero to cheat the photometric term
+    # dividing by the mask sum is the important bit - it stops the net cheating by zeroing the mask
     return (weight * diff).sum() / (weight.sum() + eps)

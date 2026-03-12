@@ -1,13 +1,12 @@
-"""Camera-path accumulation and trajectory smoothing.
+"""Building the camera path and smoothing it.
 
-The estimator yields one inter-frame homography per consecutive pair. We accumulate those
-into an absolute path (each frame's pose relative to frame 0), smooth that path, and form the
-per-frame stabilizing warp that maps each original frame onto the smoothed path.
+The estimator gives one homography per frame pair. I chain those into an absolute path (where
+each frame sits relative to frame 0), smooth that path, and then work out the warp that pulls
+each frame onto the smooth version.
 
-Smoothing runs on the per-frame motion parameters (a handful of scalars per frame), not on
-pixels, so it is plain numpy. Each of the 8 free homography entries is standardized before
-smoothing so the `strength` knob behaves consistently across entries whose natural scales
-differ by orders of magnitude (translations ~ pixels, perspective terms ~ 1e-4).
+This all runs on a few numbers per frame, not on pixels, so plain numpy is fine. I standardise
+each of the 8 homography entries first, otherwise `strength` would behave totally differently
+for translations (~pixels) vs the perspective terms (~1e-4).
 """
 
 from __future__ import annotations
@@ -92,10 +91,11 @@ def _gaussian_1d(z: np.ndarray, sigma: float) -> np.ndarray:
 
 
 def _rts_1d(z: np.ndarray, process_var: float, meas_var: float) -> np.ndarray:
-    """Rauch-Tung-Striebel smoother for a 1D constant-velocity model.
+    """Rauch-Tung-Striebel smoother, constant-velocity model.
 
-    State [position, velocity]; the position channel is returned. Globally optimal
-    (minimum-variance) for this linear-Gaussian model, smoothing both forward and backward.
+    The state is [position, velocity] and I return the position. It runs a Kalman filter
+    forward then a correction pass backward, which is the optimal smoother for this kind of
+    linear model.
     """
     n = len(z)
     if n == 1:
@@ -131,10 +131,10 @@ def _rts_1d(z: np.ndarray, process_var: float, meas_var: float) -> np.ndarray:
 
 
 def _tv_1d(z: np.ndarray, lam: float, iters: int = 400) -> np.ndarray:
-    """1D total-variation denoising: min_x 0.5||x-z||^2 + lam*sum|x_{i+1}-x_i|.
+    """1D total-variation denoising, solved with Chambolle's dual method.
 
-    Projected-gradient ascent on the dual (Chambolle). Produces a piecewise-constant path,
-    so deliberate sustained moves survive while jitter is removed.
+    This gives a piecewise-constant path, so a real pan stays as one smooth move while the
+    little jitters get flattened out.
     """
     n = len(z)
     if n < 2:

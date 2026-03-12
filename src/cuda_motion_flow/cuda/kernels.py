@@ -1,7 +1,7 @@
-"""Raw CUDA kernels compiled at runtime via CuPy, with a process-wide compile cache.
+"""The hand-written CUDA kernels, kept as strings and compiled by CuPy at runtime.
 
-Kernel sources are kept as strings here; the python wrappers in the sibling modules and in
-warp.py launch them. Everything is float32/uint8 on the device; there is no CPU path.
+The wrappers that launch these live in optical_flow.py and warp.py. I cache each compiled
+kernel so it only gets built once. Everything stays on the GPU.
 """
 
 from __future__ import annotations
@@ -23,9 +23,8 @@ def get_kernel(name: str, source: str) -> cp.RawKernel:
     return _CACHE[name]
 
 
-# Output warp: for each destination pixel, map back through the inverse homography and
-# bilinearly sample the source. Out-of-bounds samples are black so the auto-crop can remove
-# the borders afterwards. h_inv maps destination coords to source coords (dst -> src).
+# for each output pixel, go backwards through the inverse homography and sample the source.
+# anything off the edge is left black, the auto-crop trims those borders later.
 WARP_BILINEAR_U8 = r"""
 extern "C" __global__
 void warp_bilinear_u8(
@@ -75,8 +74,8 @@ void warp_bilinear_u8(
 """
 
 
-# Scharr first derivatives, normalized by 1/32 so the values match cv2.Scharr * (1/32).
-# Borders replicate the edge pixel. ix and iy are written in one pass.
+# scharr gradients, divided by 32 so they line up with cv2.Scharr. ix and iy in one go,
+# and the borders just repeat the edge pixel.
 SCHARR_GRADIENT_F32 = r"""
 extern "C" __global__
 void scharr_gradient_f32(
@@ -99,9 +98,8 @@ void scharr_gradient_f32(
 """
 
 
-# Shi-Tomasi corner response: min eigenvalue of the windowed structure tensor built from
-# ix, iy. The window is a (2R+1) box; borders clamp. Matches the numpy reference of the same
-# formula.
+# shi-tomasi corner score: the smaller eigenvalue of the structure tensor summed over a
+# (2R+1) box around each pixel. higher score means a stronger corner.
 SHI_TOMASI_RESPONSE_F32 = r"""
 extern "C" __global__
 void shi_tomasi_response_f32(
@@ -131,8 +129,7 @@ void shi_tomasi_response_f32(
 """
 
 
-# 2x Gaussian-pyramid downsample with the separable 5-tap [1,4,6,4,1]/16 kernel, matching
-# cv2.pyrDown. Output pixel (ox, oy) is centered on input (2*ox, 2*oy); borders replicate.
+# halve the image with the separable [1,4,6,4,1] gaussian, same idea as cv2.pyrDown.
 GAUSSIAN_DOWNSAMPLE_F32 = r"""
 extern "C" __global__
 void gaussian_downsample_f32(

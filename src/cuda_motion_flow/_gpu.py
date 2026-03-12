@@ -37,11 +37,8 @@ def require_cuda() -> None:
 
 
 def device_synchronize() -> None:
-    """Block until all queued GPU work finishes, across both torch and CuPy streams.
-
-    The two frameworks issue work on different streams, so timing that must bracket either
-    one synchronizes the whole device rather than a single stream.
-    """
+    """Wait for all GPU work to finish. Syncs the whole device since torch and CuPy each have
+    their own streams and timing has to cover both."""
     try:
         import torch
 

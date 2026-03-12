@@ -1,9 +1,9 @@
-"""Vectorized RANSAC homography fit over LK correspondences.
+"""RANSAC homography fit, vectorised over all the hypotheses at once.
 
-All hypotheses are generated and scored at once on the device. The minimal 4-point fits use
-regularized normal equations (robust to the occasional degenerate sample); the final refit
-over the inlier set uses Hartley-normalized DLT for conditioning. H maps source (frame A) to
-destination (frame B) coordinates.
+Instead of a python loop over RANSAC iterations, I build and score every hypothesis on the GPU
+in one go. The minimal 4-point fits use regularised normal equations so a bad sample doesn't
+crash the solve, and the final fit on the inliers uses Hartley-normalised DLT for stability. H
+goes from frame A to frame B.
 """
 
 from __future__ import annotations

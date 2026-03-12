@@ -1,10 +1,9 @@
-"""Benchmark dataset description and loaders.
+"""Downloading and loading the datasets.
 
-The NUS video stabilization dataset (Liu et al., SIGGRAPH 2013) is the real-footage
-benchmark. A small, category-spanning subset is vendored in the repo (Git LFS) so the
-benchmark runs offline; the loaders here extract that subset on demand. The full-set fetch
-is a documented secondary path. Phase-B training clips and benchmark clips are kept in
-disjoint splits so reported numbers are never measured on training footage.
+Phase A trains on a slice of COCO; the real-footage benchmark is the NUS dataset (Liu et al.
+2013), grouped by scene type. Both get pulled from their sources and cached under data/. The
+important detail is that the Phase-B training clips and the benchmark clips are kept in separate
+splits, so I'm never reporting numbers on footage the model trained on.
 """
 
 from __future__ import annotations

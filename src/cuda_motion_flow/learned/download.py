@@ -1,7 +1,7 @@
-"""Trained-weights download helper.
+"""Grabs the trained weights.
 
-Weights are not shipped in the wheel. They are fetched on first use from a configurable URL
-(env CUDA_MOTION_FLOW_WEIGHTS_URL) and cached locally. Training writes the same local path.
+The weights don't go in the wheel (too big), so the first time you need them they get pulled
+from a URL and cached. Training writes to the same place.
 """
 
 from __future__ import annotations

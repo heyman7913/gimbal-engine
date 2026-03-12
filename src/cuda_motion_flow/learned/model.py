@@ -1,13 +1,11 @@
-"""Iterative homography network (IHN lineage) and a single-shot regression baseline.
+"""The homography network (IHN style) plus a single-shot regression baseline to compare against.
 
-The network regresses the 4-point parameterization (eight corner offsets), never the raw
-homography entries. A differentiable Tensor-DLT layer turns the four corner correspondences
-into a 3x3 homography, so gradients flow from H back to the offsets. The iterative model warps
-the second feature map by the current estimate, correlates it with the first, and predicts a
-residual to the offsets; the regression baseline predicts all eight offsets in a single shot.
+The net predicts how the four patch corners move (8 numbers), not the raw 3x3 entries - that
+is much better behaved. The Tensor-DLT layer then turns those four corners into a homography,
+and since it is differentiable the gradients flow back to the corners. The iterative model
+keeps refining the corners; the baseline just predicts them once.
 
-All coordinates are in patch pixels (default 128). H maps frame-A coordinates to frame-B
-coordinates.
+Everything is in patch pixels (128 by default), and H maps frame A to frame B.
 """
 
 from __future__ import annotations
@@ -22,19 +20,19 @@ from .correlation import local_correlation
 
 
 def dlt_solve(src: torch.Tensor, dst: torch.Tensor, ridge: float = 0.0) -> torch.Tensor:
-    """Differentiable Tensor-DLT. src, dst: (B, 4, 2) corner correspondences -> H (B, 3, 3).
+    """Differentiable DLT. src, dst are (B, 4, 2) corner pairs, returns H (B, 3, 3).
 
-    Convention: rows [x y 1 0 0 0 -ux -uy].h = u and [0 0 0 x y 1 -vx -vy].h = v, h33 fixed to
-    1. The solve is forced to fp32 even under autocast, since the 8x8 system is ill-conditioned
-    in bf16. ridge > 0 switches to regularized normal equations.
+    Each point gives two rows [x y 1 0 0 0 -ux -uy].h = u and [0 0 0 x y 1 -vx -vy].h = v, with
+    h33 pinned to 1. ridge > 0 uses the regularised normal equations instead.
     """
+    # force the solve to fp32 - the 8x8 system falls apart in bf16
     ctx = (
         torch.autocast(device_type="cuda", enabled=False)
         if src.is_cuda
         else contextlib.nullcontext()
     )
     with ctx:
-        # keep float64 (gradcheck) and float32 as-is; only lift bf16/half out of autocast
+        # leave float32/float64 alone (gradcheck needs the doubles), only fix bf16/half
         if src.dtype not in (torch.float32, torch.float64):
             src = src.float()
             dst = dst.float()
@@ -155,10 +153,10 @@ class IHN(nn.Module):
         self.stride = 8
         self.radius = radius
         self.iters = iters
-        self.use_fused = False  # flipped on only after the gradcheck gate passes
+        self.use_fused = False  # only turned on once the fused kernel passes gradcheck
         self.encoder = FeatureEncoder(dim)
         self.head = _OffsetHead(dim + (2 * radius + 1) ** 2)
-        # content mask for unsupervised photometric loss (Phase B only)
+        # only used by the unsupervised phase, predicts which pixels to trust
         self.mask_head = nn.Sequential(
             nn.Conv2d(dim, 64, 3, padding=1),
             nn.ReLU(inplace=True),
@@ -205,7 +203,7 @@ class IHN(nn.Module):
 
 
 class RegressionHomographyNet(nn.Module):
-    """DeTone-style single-shot baseline: predict all eight offsets at once (the ablation)."""
+    """The baseline from the DeTone paper: predict all 8 offsets in one shot, no iteration."""
 
     corners: torch.Tensor
 
@@ -217,8 +215,8 @@ class RegressionHomographyNet(nn.Module):
         self.register_buffer("corners", _corner_template(size))
 
     def forward(self, img_a: torch.Tensor, img_b: torch.Tensor) -> list[torch.Tensor]:
-        # the two frames share the encoder; their features are concatenated by addition so the
-        # head sees both. Returns a one-element list to match the IHN interface.
+        # same encoder for both frames, the difference of features feeds the head. return a
+        # one-item list so this matches the IHN's interface.
         fa = self.encoder(img_a)
         fb = self.encoder(img_b)
         offset = self.head(fa - fb).view(img_a.shape[0], 4, 2)

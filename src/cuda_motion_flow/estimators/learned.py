@@ -1,7 +1,8 @@
-"""Learned estimator: the trained IHN wrapped behind the shared Estimator interface.
+"""The trained IHN wrapped up to look like any other Estimator.
 
-Frames are resized to the network's square patch size; the homography recovered at that scale
-is mapped back to full resolution by the (anisotropic) resize transform S, H_full = S^-1 H S.
+The net wants a small square input, so I take a centre square crop of the frame, run it, and
+then rescale the homography back to full resolution. The crop matters - the net was trained on
+square patches, so squashing a wide frame into a square would throw it off.
 """
 
 from __future__ import annotations

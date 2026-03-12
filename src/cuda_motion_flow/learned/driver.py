@@ -1,6 +1,6 @@
-"""End-to-end training orchestration: gate the fused kernel, run Phase A on COCO for both the
-iterative model and the regression baseline (the ablation), run Phase B on NUS with the
-adoption guard, and save the chosen weights.
+"""Ties the whole training run together: check the fused kernel, train both the IHN and the
+regression baseline on COCO (Phase A), fine-tune on NUS with the guard (Phase B), and save the
+weights it decides to keep.
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ def stability_metric(model: IHN, clips: list[Clip], log: Callable[[str], None]) 
     """Mean stabilized-path stability over held-out clips, using the in-training model."""
     from ..estimators.learned import LearnedEstimator
 
+    # wrap the model we're training without going through __init__ (it would reload weights)
     est = LearnedEstimator.__new__(LearnedEstimator)
     est.name = "ihn"
     est.size = model.size

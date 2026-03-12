@@ -1,18 +1,10 @@
-"""Local correlation (cost volume) for the iterative homography network.
+"""Local correlation (the cost volume) for the homography network.
 
-Two implementations:
-  - `local_correlation_reference`: pure PyTorch (shift-multiply-sum). This is the correctness
-    oracle and the default used in training. It runs on the GPU.
-  - `FusedLocalCorrelation`: a custom autograd.Function backed by hand-written CuPy RawKernels
-    (forward and both backward passes). It computes the same volume in a single pass with no
-    per-shift temporaries. Both backward passes are written as gathers, so no atomics are
-    needed. It is gated: it must match the reference under torch.autograd.gradcheck before any
-    training run uses it; otherwise training falls back to the reference.
-
-For a feature map of C channels the correlation at offset (dy, dx) is the channel dot product
-of A at (y, x) with B at (y+dy, x+dx), divided by sqrt(C). After the iterative warp the
-residual motion is small, so a local window of radius r (giving (2r+1)^2 channels) suffices,
-which is exactly why the fused kernel beats materializing a full volume.
+The correlation at offset (dy, dx) is just the channel dot product of feature map A at (y, x)
+with B at (y+dy, x+dx), divided by sqrt(C). I have two versions: a plain PyTorch one that I
+trust as the reference, and a fused CUDA one I wrote myself. The fused one is only switched on
+after it passes gradcheck against the reference, so if I got the kernel wrong training still
+works.
 """
 
 from __future__ import annotations
@@ -149,7 +141,8 @@ def _torch_stream() -> Any:
 
 
 def _launch(kernel: Any, n: int, args: tuple[Any, ...]) -> None:
-    """Launch on torch's current stream so ordering and the caching allocator stay correct."""
+    # launch on torch's stream, otherwise torch and cupy can race or free memory too early
+
     threads = 256
     blocks = (n + threads - 1) // threads
     with _torch_stream():
@@ -173,8 +166,8 @@ class FusedLocalCorrelation(torch.autograd.Function):
     def forward(ctx: Any, fa: torch.Tensor, fb: torch.Tensor, radius: int) -> torch.Tensor:
         import numpy as np
 
-        # CuPy has no bfloat16/half; run the kernel in fp32 and cast back. Gradients still
-        # flow to the original-dtype inputs (cast in backward).
+        # cupy can't take bf16/half, so run the kernel in fp32 and cast the result back.
+        # the grads still reach the original tensors (cast again in backward).
         orig_dtype = fa.dtype
         if orig_dtype not in (torch.float32, torch.float64):
             fa = fa.float()

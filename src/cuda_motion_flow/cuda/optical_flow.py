@@ -1,8 +1,8 @@
-"""GPU corner detection and pyramidal Lucas-Kanade tracking.
+"""Corner detection and pyramidal Lucas-Kanade, all on the GPU.
 
-The hot per-pixel work (Scharr gradients, Shi-Tomasi response, pyramid downsampling) runs in
-raw CUDA kernels; the LK solve is vectorized across all tracked points with CuPy. Everything
-stays on the device. Points are (x, y) float32.
+The heavy per-pixel stuff (gradients, corner scores, downsampling) is done by the CUDA kernels;
+the LK solve itself I vectorise over all the points with CuPy so there's no python loop over
+features. Points are (x, y) float32.
 """
 
 from __future__ import annotations

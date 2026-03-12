@@ -1,11 +1,7 @@
-"""Stage-0 hard gate: prove torch and CuPy both work on this GPU before building anything.
+"""Quick sanity check that the GPU actually works before I bother with anything else.
 
-Checks:
-  1. torch sees CUDA, runs a matmul on device, result is finite.
-  2. the device is Blackwell (sm_120) as expected for the 5070 Ti.
-  3. CuPy compiles a trivial RawKernel at runtime (nvrtc) and runs it correctly.
-
-Exits non-zero on any failure so the Docker build / CI can gate on it.
+It checks that torch can run a matmul on the device, that the GPU really is Blackwell (sm_120),
+and that CuPy can compile and run a kernel. Exits non-zero if any of that fails.
 """
 
 from __future__ import annotations

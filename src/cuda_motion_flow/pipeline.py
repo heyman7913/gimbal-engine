@@ -1,5 +1,7 @@
-"""Stabilization orchestration. Identical for every estimator: it only sees the Estimator
-interface, never which concrete estimator it was handed.
+"""The stabilization pipeline.
+
+It only ever talks to the Estimator interface, so it has no idea whether it's running the
+classical or the learned one - which is the whole point of the project.
 """
 
 from __future__ import annotations

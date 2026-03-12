@@ -1,9 +1,8 @@
-"""GPU frame warping and auto-crop.
+"""Warping frames on the GPU and figuring out the crop.
 
-The stabilizing transform B maps an original frame onto the smoothed path. Rendering the
-output samples the source through B^{-1} (dst -> src), so black borders appear wherever the
-correction pushes content out of frame. The auto-crop finds the largest axis-aligned window
-that stays inside every warped frame, which is also the cropping-ratio numerator.
+To render a stabilized frame I sample the source through the inverse transform, so wherever the
+correction pushes content off-screen I get black borders. The auto-crop then finds the biggest
+rectangle that stays inside every frame - that same rectangle is the cropping-ratio metric.
 """
 
 from __future__ import annotations

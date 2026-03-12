@@ -1,10 +1,9 @@
-"""Training data: synthetic homography pairs (Phase A) and real video pairs (Phase B).
+"""Training data: synthetic warped pairs for Phase A, real video pairs for Phase B.
 
-Synthetic pairs are generated entirely on the GPU with grid_sample, so the data path never
-starves the device. A pool of grayscale images is held on the host as uint8; each step a random
-batch is moved to the GPU, a random 4-corner perturbation defines the homography, and both
-patches are sampled from the (larger) source image so the warped patch is filled with real
-content rather than borders. The corner offsets are the free supervision labels.
+I make the synthetic pairs on the GPU with grid_sample so the data loading never becomes the
+bottleneck. The images sit on the CPU as uint8, and each step I grab a random batch, jitter the
+four corners to define a homography, and cut both patches out of the bigger image so the warped
+one is filled with real pixels instead of black borders. Those corner offsets are the labels.
 """
 
 from __future__ import annotations
