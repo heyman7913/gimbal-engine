@@ -41,3 +41,6 @@ data/
 *.mp4
 *.avi
 *.mov
+
+# run logs
+*.log
