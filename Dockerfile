@@ -23,6 +23,7 @@ RUN uv pip install \
         opencv-python-headless \
         rich rich-click click \
         matplotlib \
+        ninja \
         pytest ruff mypy build twine
 
 WORKDIR /workspace
