@@ -6,6 +6,9 @@
 torch::Tensor correlation_forward(torch::Tensor fa, torch::Tensor fb, int64_t radius);
 std::vector<torch::Tensor> correlation_backward(
     torch::Tensor grad, torch::Tensor fa, torch::Tensor fb, int64_t radius);
+// optimization variants used by the systems study (forward only).
+torch::Tensor correlation_forward_v1(torch::Tensor fa, torch::Tensor fb, int64_t radius);
+torch::Tensor correlation_forward_v2(torch::Tensor fa_nhwc, torch::Tensor fb_nhwc, int64_t radius);
 
 // classical pipeline kernels. images are float32 (H, W) unless noted.
 std::vector<torch::Tensor> scharr_gradient(torch::Tensor img);

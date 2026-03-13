@@ -87,6 +87,109 @@ __global__ void corr_bwd_fb_kernel(
   gfb[idx] = acc * inv;
 }
 
+// v1: each thread owns one (b, y, x) and loads fa once per channel, reusing it across a tile
+// of K shifts. v0 reloaded fa once per (k, c), so this cuts the redundant fa traffic ~Kx.
+template <typename scalar_t>
+__global__ void corr_fwd_v1_kernel(
+    const scalar_t* __restrict__ fa, const scalar_t* __restrict__ fb,
+    scalar_t* __restrict__ out, int B, int C, int H, int W, int R, scalar_t inv) {
+  const int D = 2 * R + 1;
+  const int K = D * D;
+  const long total = (long)B * H * W;
+  long idx = (long)blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= total) return;
+  const int x = idx % W; long t = idx / W;
+  const int y = t % H;
+  const int b = t / H;
+
+  const int KTILE = 9;
+  for (int kt = 0; kt < K; kt += KTILE) {
+    scalar_t acc[KTILE];
+#pragma unroll
+    for (int i = 0; i < KTILE; ++i) acc[i] = 0;
+    for (int c = 0; c < C; ++c) {
+      const long base = ((long)b * C + c) * H;
+      const scalar_t fav = fa[(base + y) * W + x];
+#pragma unroll
+      for (int kk = 0; kk < KTILE; ++kk) {
+        const int k = kt + kk;
+        if (k >= K) break;
+        const int dy = k / D - R, dx = k % D - R;
+        const int yy = y + dy, xx = x + dx;
+        if (yy >= 0 && yy < H && xx >= 0 && xx < W) acc[kk] += fav * fb[(base + yy) * W + xx];
+      }
+    }
+#pragma unroll
+    for (int kk = 0; kk < KTILE; ++kk) {
+      const int k = kt + kk;
+      if (k >= K) break;
+      out[((long)(b * K + k) * H + y) * W + x] = acc[kk] * inv;
+    }
+  }
+}
+
+// v2: same one-thread-per-output as v0 but the features are NHWC so the channel reduction is
+// contiguous, letting each thread pull 4 channels per float4 load. Needs C % 4 == 0.
+__global__ void corr_fwd_v2_kernel(
+    const float* __restrict__ fa, const float* __restrict__ fb, float* __restrict__ out,
+    int B, int C, int H, int W, int R, float inv) {
+  const int D = 2 * R + 1;
+  const int K = D * D;
+  const long total = (long)B * K * H * W;
+  long idx = (long)blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= total) return;
+  const int x = idx % W; long t = idx / W;
+  const int y = t % H; t /= H;
+  const int k = t % K; t /= K;
+  const int b = t;
+  const int dy = k / D - R, dx = k % D - R;
+  const int yy = y + dy, xx = x + dx;
+  float acc = 0.f;
+  if (yy >= 0 && yy < H && xx >= 0 && xx < W) {
+    const float4* fap = (const float4*)(fa + (((long)(b * H + y) * W + x) * C));
+    const float4* fbp = (const float4*)(fb + (((long)(b * H + yy) * W + xx) * C));
+    const int c4 = C / 4;
+    for (int i = 0; i < c4; ++i) {
+      const float4 a = fap[i], bb = fbp[i];
+      acc += a.x * bb.x + a.y * bb.y + a.z * bb.z + a.w * bb.w;
+    }
+  }
+  out[idx] = acc * inv;
+}
+
+torch::Tensor correlation_forward_v1(torch::Tensor fa, torch::Tensor fb, int64_t radius) {
+  const int B = fa.size(0), C = fa.size(1), H = fa.size(2), W = fa.size(3);
+  const int K = (2 * radius + 1) * (2 * radius + 1);
+  auto out = torch::empty({B, K, H, W}, fa.options());
+  const long total = (long)B * H * W;
+  const int threads = 256;
+  const long blocks = (total + threads - 1) / threads;
+  auto stream = at::cuda::getCurrentCUDAStream();
+  AT_DISPATCH_FLOATING_TYPES(fa.scalar_type(), "correlation_forward_v1", [&] {
+    const scalar_t inv = (scalar_t)(1.0 / std::sqrt((double)C));
+    corr_fwd_v1_kernel<scalar_t><<<blocks, threads, 0, stream>>>(
+        fa.data_ptr<scalar_t>(), fb.data_ptr<scalar_t>(), out.data_ptr<scalar_t>(),
+        B, C, H, W, radius, inv);
+  });
+  return out;
+}
+
+// fa_nhwc, fb_nhwc are (B, H, W, C) contiguous. out stays (B, K, H, W).
+torch::Tensor correlation_forward_v2(torch::Tensor fa_nhwc, torch::Tensor fb_nhwc, int64_t radius) {
+  const int B = fa_nhwc.size(0), H = fa_nhwc.size(1), W = fa_nhwc.size(2), C = fa_nhwc.size(3);
+  const int K = (2 * radius + 1) * (2 * radius + 1);
+  auto out = torch::empty({B, K, H, W}, fa_nhwc.options());
+  const long total = (long)B * K * H * W;
+  const int threads = 256;
+  const long blocks = (total + threads - 1) / threads;
+  auto stream = at::cuda::getCurrentCUDAStream();
+  const float inv = (float)(1.0 / std::sqrt((double)C));
+  corr_fwd_v2_kernel<<<blocks, threads, 0, stream>>>(
+      fa_nhwc.data_ptr<float>(), fb_nhwc.data_ptr<float>(), out.data_ptr<float>(),
+      B, C, H, W, radius, inv);
+  return out;
+}
+
 torch::Tensor correlation_forward(torch::Tensor fa, torch::Tensor fb, int64_t radius) {
   const int B = fa.size(0), C = fa.size(1), H = fa.size(2), W = fa.size(3);
   const int K = (2 * radius + 1) * (2 * radius + 1);
