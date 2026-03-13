@@ -1,0 +1,5 @@
+version,latency_ms,achieved_gflops,pct_of_memory_roof,max_err_vs_v0,speedup_vs_v0,speedup_vs_reference,threads_launched,bottleneck
+pytorch_reference,10.3339,12.3,6.03,1.9073486328125e-06,0.12,1.0,,overhead-bound: dozens of small ops plus temporaries per call
+v0_naive,1.2496,102.0,49.89,0.0,1.0,8.27,663552,"memory-bound, ~half the copy roof, fully parallel and coalesced"
+v1_fa_reuse,11.432,11.1,5.45,0.0,0.11,0.9,8192,"occupancy-bound: only 8192 threads vs v0's 663552, too few to hide latency, so saving fa loads does not pay off"
+v2_float4_nhwc,3.1932,39.9,19.53,2.384185791015625e-06,0.39,3.24,663552,"uncoalesced: NHWC makes neighbouring threads stride by C, breaking warp coalescing despite the float4 loads"
