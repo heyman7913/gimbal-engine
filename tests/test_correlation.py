@@ -44,6 +44,20 @@ def test_fused_backward_matches_reference():
     assert torch.allclose(fb1.grad, fb2.grad, atol=1e-4, rtol=1e-4)
 
 
+def test_correlation_variants_match_v0():
+    import cuda_motion_flow._cuda as ext
+    import torch
+
+    torch.manual_seed(3)
+    fa = torch.randn(4, 96, 12, 14, device="cuda")
+    fb = torch.randn(4, 96, 12, 14, device="cuda")
+    v0 = ext.correlation_forward(fa, fb, 4)
+    assert torch.equal(ext.correlation_forward_v1(fa, fb, 4), v0)  # identical math, fewer loads
+    fan = fa.permute(0, 2, 3, 1).contiguous()
+    fbn = fb.permute(0, 2, 3, 1).contiguous()
+    assert torch.allclose(ext.correlation_forward_v2(fan, fbn, 4), v0, atol=1e-4)
+
+
 def test_fused_runs_under_bfloat16():
     import torch
 
