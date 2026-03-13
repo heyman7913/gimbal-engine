@@ -52,6 +52,45 @@ def test_dlt_gradcheck():
     )
 
 
+def test_solve_nopivot_matches_cusolver():
+    import torch
+
+    from cuda_motion_flow.learned.model import _solve_nopivot
+
+    torch.manual_seed(0)
+    a = torch.randn(5, 8, 8, device="cuda")
+    a = a @ a.transpose(1, 2) + torch.eye(8, device="cuda")  # SPD, what the ridge DLT produces
+    b = torch.randn(5, 8, 1, device="cuda")
+    assert torch.allclose(_solve_nopivot(a, b), torch.linalg.solve(a, b), atol=1e-4)
+
+
+def test_cuda_graph_replay_matches_eager():
+    import torch
+
+    from cuda_motion_flow.learned.model import IHN
+
+    m = IHN(size=64, iters=3).cuda().eval()
+    a = torch.rand(1, 1, 64, 64, device="cuda")
+    b = torch.rand(1, 1, 64, 64, device="cuda")
+    with torch.no_grad():
+        ref = m.predict(a, b).clone()
+
+    m.graph_safe = True
+    side = torch.cuda.Stream()
+    side.wait_stream(torch.cuda.current_stream())
+    with torch.cuda.stream(side), torch.no_grad():
+        for _ in range(3):
+            m.predict(a, b)
+    torch.cuda.current_stream().wait_stream(side)
+
+    graph = torch.cuda.CUDAGraph()
+    with torch.no_grad(), torch.cuda.graph(graph):
+        out = m.predict(a, b)
+    graph.replay()
+    torch.cuda.synchronize()
+    assert (out - ref).abs().max().item() < 1e-3
+
+
 def test_ihn_forward_shapes():
     import torch
 
