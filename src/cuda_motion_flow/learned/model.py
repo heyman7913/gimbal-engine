@@ -19,7 +19,31 @@ import torch.nn.functional as F
 from .correlation import local_correlation
 
 
-def dlt_solve(src: torch.Tensor, dst: torch.Tensor, ridge: float = 0.0) -> torch.Tensor:
+def _solve_nopivot(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    """Batched solve of A x = b by gaussian elimination, no pivoting, written functionally.
+
+    torch.linalg.solve calls cuSOLVER which does a host sync and so breaks CUDA-graph capture.
+    This stays on the device and is differentiable, at the cost of needing A well-conditioned
+    (it is only used on the ridge-regularised normal equations, which are SPD). n is small (8).
+    """
+    n = a.shape[-1]
+    m = torch.cat([a, b], dim=-1)  # augmented (B, n, n+1)
+    for c in range(n):
+        factor = (m[:, c + 1 :, c] / m[:, c, c].unsqueeze(-1)).unsqueeze(-1)
+        new_below = m[:, c + 1 :, :] - factor * m[:, c : c + 1, :]
+        m = torch.cat([m[:, : c + 1, :], new_below], dim=1)
+    cols: list[torch.Tensor] = [a.new_zeros(a.shape[0])] * n
+    for r in range(n - 1, -1, -1):
+        acc = m[:, r, n]
+        for j in range(r + 1, n):
+            acc = acc - m[:, r, j] * cols[j]
+        cols[r] = acc / m[:, r, r]
+    return torch.stack(cols, dim=1).unsqueeze(-1)
+
+
+def dlt_solve(
+    src: torch.Tensor, dst: torch.Tensor, ridge: float = 0.0, graph_safe: bool = False
+) -> torch.Tensor:
     """Differentiable DLT. src, dst are (B, 4, 2) corner pairs, returns H (B, 3, 3).
 
     Each point gives two rows [x y 1 0 0 0 -ux -uy].h = u and [0 0 0 x y 1 -vx -vy].h = v, with
@@ -47,7 +71,8 @@ def dlt_solve(src: torch.Tensor, dst: torch.Tensor, ridge: float = 0.0) -> torch
         if ridge > 0.0:
             at = a.transpose(1, 2)
             eye = ridge * torch.eye(8, device=a.device, dtype=a.dtype)
-            h8 = torch.linalg.solve(at @ a + eye, at @ rhs)
+            ata, atb = at @ a + eye, at @ rhs
+            h8 = _solve_nopivot(ata, atb) if graph_safe else torch.linalg.solve(ata, atb)
         else:
             h8 = torch.linalg.solve(a, rhs)
         h8 = h8.squeeze(-1)
@@ -154,6 +179,7 @@ class IHN(nn.Module):
         self.radius = radius
         self.iters = iters
         self.use_fused = False  # only turned on once the fused kernel passes gradcheck
+        self.graph_safe = False  # use the capturable DLT solve (for CUDA-graph inference)
         self.encoder = FeatureEncoder(dim)
         self.head = _OffsetHead(dim + (2 * radius + 1) ** 2)
         # only used by the unsupervised phase, predicts which pixels to trust
@@ -187,7 +213,7 @@ class IHN(nn.Module):
         offset = torch.zeros(b, 4, 2, device=img_a.device)
         outputs = []
         for _ in range(self.iters):
-            h = dlt_solve(src, src + offset, ridge=1e-4)
+            h = dlt_solve(src, src + offset, ridge=1e-4, graph_safe=self.graph_safe)
             fb_w = homography_warp(fb, self._h_feat(h))
             corr = local_correlation(fa, fb_w, self.radius, fused=self.use_fused)
             delta = self.head(torch.cat([corr, fa], dim=1)).view(b, 4, 2)
@@ -199,7 +225,7 @@ class IHN(nn.Module):
         """Final homography (B, 3, 3) at patch scale."""
         offset = self.forward(img_a, img_b)[-1]
         src = self.corners.unsqueeze(0).expand(img_a.shape[0], 4, 2)
-        return dlt_solve(src, src + offset, ridge=1e-4)
+        return dlt_solve(src, src + offset, ridge=1e-4, graph_safe=self.graph_safe)
 
 
 class RegressionHomographyNet(nn.Module):
