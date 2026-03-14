@@ -32,6 +32,22 @@ def mace(offset: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     return ((offset - target) ** 2).sum(dim=-1).sqrt().mean()
 
 
+def mesh_corner_loss(offsets: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """L1 between per-cell offsets (B, gh, gw, 4, 2) and a target. A (B, 4, 2) target is the
+    global motion broadcast to every cell (used for the global pretrain)."""
+    if target.dim() == 3:
+        target = target[:, None, None]
+    return (offsets - target).abs().mean()
+
+
+def mesh_smoothness(offsets: torch.Tensor) -> torch.Tensor:
+    """Penalty on the difference between neighbouring cells' offsets (the parallax inductive
+    bias). offsets is (B, gh, gw, 4, 2)."""
+    dh = (offsets[:, 1:] - offsets[:, :-1]).abs().mean()
+    dw = (offsets[:, :, 1:] - offsets[:, :, :-1]).abs().mean()
+    return dh + dw
+
+
 def photometric_feature_loss(
     model: IHN, patch_a: torch.Tensor, patch_b: torch.Tensor, h: torch.Tensor, eps: float = 1e-3
 ) -> torch.Tensor:

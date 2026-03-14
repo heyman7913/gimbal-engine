@@ -106,6 +106,65 @@ class SyntheticPairGenerator:
         return patch_a, patch_b, delta
 
 
+class SyntheticParallaxGenerator:
+    """Pairs with a smoothly varying per-cell translation field, the kind of local motion a
+    single global homography cannot represent. Returns (patch_a, patch_b, per_cell_offsets) so
+    the mesh advantage can be measured against ground truth.
+    """
+
+    def __init__(
+        self,
+        pool: torch.Tensor,
+        patch: int = 128,
+        grid: tuple[int, int] = (8, 8),
+        max_shift: float = 16.0,
+        margin: int = 24,
+        device: str = "cuda",
+        seed: int = 0,
+    ) -> None:
+        self.pool = pool
+        self.patch = patch
+        self.grid = grid
+        self.max_shift = max_shift
+        self.margin = margin
+        self.device = device
+        self.gen = torch.Generator().manual_seed(seed)
+
+    def sample(self, batch: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        from .model import mesh_sampling_grid
+
+        n, h, w = self.pool.shape
+        p, (gh, gw) = self.patch, self.grid
+        idx = torch.randint(0, n, (batch,), generator=self.gen)
+        imgs = self.pool[idx].to(self.device).float().div_(255.0).unsqueeze(1)
+        px = torch.randint(self.margin, w - p - self.margin, (batch,), generator=self.gen)
+        py = torch.randint(self.margin, h - p - self.margin, (batch,), generator=self.gen)
+        eye = torch.eye(3, device=self.device).unsqueeze(0).expand(batch, 3, 3)
+        pxf = px.to(self.device).float()
+        pyf = py.to(self.device).float()
+        patch_a = _sample_patch(imgs, pxf, pyf, eye, p)
+
+        dev = self.device
+        cx = torch.linspace(-1, 1, gw, device=dev).view(1, 1, gw)
+        cy = torch.linspace(-1, 1, gh, device=dev).view(1, gh, 1)
+
+        def rnd() -> torch.Tensor:
+            return (torch.rand(batch, 1, 1, generator=self.gen).to(dev) * 2 - 1) * self.max_shift
+
+        tx = rnd() + rnd() * cx + rnd() * cy  # (B, gh, gw)
+        ty = rnd() + rnd() * cx + rnd() * cy
+        offsets = torch.stack([tx, ty], dim=-1).unsqueeze(3).expand(batch, gh, gw, 4, 2)
+
+        field_inv = torch.eye(3, device=dev).view(1, 1, 1, 3, 3).repeat(batch, gh, gw, 1, 1)
+        field_inv[..., 0, 2] = -tx
+        field_inv[..., 1, 2] = -ty
+        grid_xy = mesh_sampling_grid(field_inv, p, p)
+        patch_b = torch.nn.functional.grid_sample(
+            patch_a, grid_xy, mode="bilinear", padding_mode="border", align_corners=True
+        )
+        return patch_a, patch_b, offsets
+
+
 def video_frame_pairs(
     clip_paths: list[Path], patch: int = 128, stride: int = 2, limit_per_clip: int = 200
 ) -> list[tuple[np.ndarray, np.ndarray]]:
