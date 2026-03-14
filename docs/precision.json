@@ -1,0 +1,21 @@
+{
+  "throughput": {
+    "corr_ref_fp32_ms": 2.303,
+    "corr_ref_fp16_ms": 2.3424,
+    "corr_ref_bf16_ms": 2.44,
+    "corr_fp16_rel_err": 0.0007
+  },
+  "accuracy": {
+    "mace_fp32": 0.8629,
+    "mace_fp16": 0.8649,
+    "mace_fp16_delta": 0.002,
+    "mace_bf16": 0.8917,
+    "mace_bf16_delta": 0.0288
+  },
+  "fp8": {
+    "fp8_dtype_available": true,
+    "scaled_mm_available": true,
+    "note": "torch exposes fp8 and _scaled_mm, but the cost volume at 16x16 is a tiny per-pair dot product, not a large GEMM, so an fp8 tensor-core path has nothing to amortise. the kernel is latency bound (see optimization_log), so fp8 would be marginal here and was not pursued."
+  },
+  "weights_loaded": true
+}
