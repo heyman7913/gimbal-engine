@@ -13,6 +13,7 @@ import numpy as np
 
 from . import metrics, trajectory
 from .estimators.base import Estimator
+from .motion import MotionField
 from .trajectory import Smoother
 from .video_io import to_gray
 from .warp import compute_crop_box, warp_frame
@@ -50,12 +51,17 @@ def stabilize(
     grays = [to_gray(f) for f in frames]
     estimator.warmup(h, w)
 
-    pairwise = np.empty((len(frames) - 1, 3, 3), dtype=np.float64)
+    fields = []
     for i in range(1, len(frames)):
-        pairwise[i - 1] = estimator.estimate(grays[i - 1], grays[i])
+        fields.append(estimator.estimate(grays[i - 1], grays[i]))
         if progress is not None:
             progress("estimate", i, len(frames) - 1)
 
+    if not all(f.is_global for f in fields):
+        return _stabilize_mesh(frames, fields, smoother, strength, auto_crop, preserve_resolution)
+
+    # global path: identical to the original single-homography pipeline (bit-exact)
+    pairwise = np.stack([f.as_global() for f in fields])
     cumulative = trajectory.cumulative_path(pairwise)
     smoothed = trajectory.smooth_path(cumulative, smoother, strength)
     transforms = trajectory.stabilizing_transforms(cumulative, smoothed)
@@ -92,3 +98,14 @@ def stabilize(
         "stability_input": metrics.stability_score(cumulative),
     }
     return result
+
+
+def _stabilize_mesh(
+    frames: list[np.ndarray],
+    fields: list[MotionField],
+    smoother: Smoother,
+    strength: float,
+    auto_crop: bool,
+    preserve_resolution: bool,
+) -> StabilizeResult:
+    raise NotImplementedError("mesh MotionField stabilization is added with the mesh estimator")

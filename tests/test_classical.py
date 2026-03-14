@@ -26,7 +26,7 @@ def test_classical_recovers_translation():
     b = cv2.warpPerspective(a, m, (w, h))
 
     est = ClassicalEstimator()
-    recovered = est.estimate(a, b)
+    recovered = est.estimate(a, b).as_global()
 
     ux, uy = _apply(recovered, w / 2, h / 2)
     assert abs(ux - (w / 2 + 4.0)) < 1.5
@@ -50,7 +50,7 @@ def test_classical_recovers_small_rotation():
     b = cv2.warpPerspective(a, rot, (w, h))
 
     est = ClassicalEstimator()
-    recovered = est.estimate(a, b)
+    recovered = est.estimate(a, b).as_global()
 
     # a corner point should map close to where the true rotation sends it
     px, py = 80.0, 60.0

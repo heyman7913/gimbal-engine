@@ -15,6 +15,7 @@ import numpy as np
 
 from .._gpu import require_cuda
 from ..learned.model import IHN
+from ..motion import MotionField
 from .base import Estimator
 
 
@@ -45,7 +46,7 @@ class LearnedEstimator(Estimator):
         dummy = np.zeros((height, width), dtype=np.uint8)
         self.estimate(dummy, dummy)
 
-    def estimate(self, prev_gray: np.ndarray, curr_gray: np.ndarray) -> np.ndarray:
+    def estimate(self, prev_gray: np.ndarray, curr_gray: np.ndarray) -> MotionField:
         import torch
 
         self._validate_pair(prev_gray, curr_gray)
@@ -83,6 +84,5 @@ class LearnedEstimator(Estimator):
             or not (0.5 < sv[0] * sv[1] < 2.0)
             or perspective > 0.05
         ):
-            return np.eye(3, dtype=np.float64)
-        result: np.ndarray = h_full
-        return result
+            return MotionField.global_(np.eye(3))
+        return MotionField.global_(h_full)

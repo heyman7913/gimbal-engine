@@ -7,6 +7,7 @@ import numpy as np
 from .._gpu import require_cuda
 from ..cuda.optical_flow import compute_flow
 from ..cuda.ransac import ransac_homography
+from ..motion import MotionField
 from .base import Estimator
 
 
@@ -25,7 +26,7 @@ class ClassicalEstimator(Estimator):
         dummy[:, :: max(1, width // 16)] = 255
         self.estimate(dummy, dummy)
 
-    def estimate(self, prev_gray: np.ndarray, curr_gray: np.ndarray) -> np.ndarray:
+    def estimate(self, prev_gray: np.ndarray, curr_gray: np.ndarray) -> MotionField:
         import cupy as cp
 
         self._validate_pair(prev_gray, curr_gray)
@@ -34,10 +35,9 @@ class ClassicalEstimator(Estimator):
 
         src, dst = compute_flow(prev, curr)
         if int(src.shape[0]) < 4:
-            return np.eye(3, dtype=np.float64)
+            return MotionField.global_(np.eye(3))
 
         h, mask = ransac_homography(src, dst, n_iter=self.n_iter, threshold=self.ransac_threshold)
         if int(mask.sum()) < 4:
-            return np.eye(3, dtype=np.float64)
-        result: np.ndarray = cp.asnumpy(h).astype(np.float64)
-        return result
+            return MotionField.global_(np.eye(3))
+        return MotionField.global_(cp.asnumpy(h).astype(np.float64))
