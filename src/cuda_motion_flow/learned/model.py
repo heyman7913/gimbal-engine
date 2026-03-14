@@ -100,6 +100,46 @@ def homography_warp(fb: torch.Tensor, h_feat: torch.Tensor) -> torch.Tensor:
     return F.grid_sample(fb, sample_grid, mode="bilinear", padding_mode="zeros", align_corners=True)
 
 
+def mesh_sampling_grid(field: torch.Tensor, h: int, w: int) -> torch.Tensor:
+    """grid_sample grid (B, H, W, 2) from a (B, gh, gw, 3, 3) field of per-cell homographies.
+
+    Each pixel takes the four homographies of the cells around its continuous grid position,
+    applies each to the pixel, and bilinearly blends the resulting coordinates. If every cell
+    holds the same homography this reduces exactly to that single homography's grid.
+    """
+    b, gh, gw = field.shape[0], field.shape[1], field.shape[2]
+    dev = field.device
+    ys, xs = torch.meshgrid(
+        torch.arange(h, device=dev, dtype=field.dtype),
+        torch.arange(w, device=dev, dtype=field.dtype),
+        indexing="ij",
+    )
+    fy = (ys + 0.5) / h * gh - 0.5
+    fx = (xs + 0.5) / w * gw - 0.5
+    c0y = fy.floor().clamp(0, gh - 1).long()
+    c0x = fx.floor().clamp(0, gw - 1).long()
+    c1y = (c0y + 1).clamp(0, gh - 1)
+    c1x = (c0x + 1).clamp(0, gw - 1)
+    wy = (fy - c0y.to(field.dtype)).clamp(0, 1)[None, :, :, None]
+    wx = (fx - c0x.to(field.dtype)).clamp(0, 1)[None, :, :, None]
+    flat = field.reshape(b, gh * gw, 3, 3)
+    p = torch.stack([xs, ys, torch.ones_like(xs)], dim=-1)  # (H, W, 3)
+
+    def apply(cy: torch.Tensor, cx: torch.Tensor) -> torch.Tensor:
+        hm = flat[:, (cy * gw + cx).reshape(-1)].reshape(b, h, w, 3, 3)
+        m = (hm * p[None, :, :, None, :]).sum(dim=-1)  # (B, H, W, 3)
+        denom = m[..., 2:3]
+        denom = torch.where(denom.abs() < 1e-8, torch.full_like(denom, 1e-8), denom)
+        return m[..., :2] / denom
+
+    top = apply(c0y, c0x) * (1 - wx) + apply(c0y, c1x) * wx
+    bot = apply(c1y, c0x) * (1 - wx) + apply(c1y, c1x) * wx
+    mapped = top * (1 - wy) + bot * wy
+    xn = 2.0 * mapped[..., 0] / (w - 1) - 1.0
+    yn = 2.0 * mapped[..., 1] / (h - 1) - 1.0
+    return torch.stack([xn, yn], dim=-1)
+
+
 class _ResBlock(nn.Module):
     def __init__(self, c: int) -> None:
         super().__init__()
@@ -252,3 +292,57 @@ class RegressionHomographyNet(nn.Module):
         offset = self.forward(img_a, img_b)[-1]
         src = self.corners.unsqueeze(0).expand(img_a.shape[0], 4, 2)
         return dlt_solve(src, src + offset, ridge=1e-4)
+
+
+class MeshIHN(nn.Module):
+    """A grid of local homographies. It runs the global IHN for the dominant motion, then a head
+    predicts a per-cell residual on top, so a 1x1 grid behaves like the global model and a real
+    grid can bend to local motion (parallax). corners are shared across cells.
+    """
+
+    corners: torch.Tensor
+
+    def __init__(
+        self, size: int = 128, grid: tuple[int, int] = (8, 8), dim: int = 96, radius: int = 4,
+        iters: int = 6,
+    ) -> None:
+        super().__init__()
+        self.size = size
+        self.grid = grid
+        self.radius = radius
+        self.global_ihn = IHN(size, dim, radius, iters)
+        self.mesh_head = nn.Sequential(
+            nn.Conv2d(dim + (2 * radius + 1) ** 2, 128, 3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, 3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 8, 1),
+        )
+        self.register_buffer("corners", _corner_template(size))
+
+    def forward(self, img_a: torch.Tensor, img_b: torch.Tensor) -> torch.Tensor:
+        """Per-cell 4-point offsets, shape (B, gh, gw, 4, 2)."""
+        g = self.global_ihn(img_a, img_b)[-1]  # (B, 4, 2) dominant motion
+        ihn = self.global_ihn
+        fa = ihn.encoder(img_a)
+        fb = ihn.encoder(img_b)
+        b = img_a.shape[0]
+        src = self.corners.unsqueeze(0).expand(b, 4, 2)
+        h = dlt_solve(src, src + g, ridge=1e-4, graph_safe=ihn.graph_safe)
+        fb_w = homography_warp(fb, ihn._h_feat(h))
+        corr = local_correlation(fa, fb_w, self.radius, fused=ihn.use_fused)
+        cell = self.mesh_head(torch.cat([corr, fa], dim=1))
+        cell = F.adaptive_avg_pool2d(cell, self.grid)  # (B, 8, gh, gw)
+        gh, gw = self.grid
+        residual = cell.permute(0, 2, 3, 1).reshape(b, gh, gw, 4, 2)
+        return g[:, None, None, :, :] + residual
+
+    def predict_field(self, img_a: torch.Tensor, img_b: torch.Tensor) -> torch.Tensor:
+        """Per-cell homographies, shape (B, gh, gw, 3, 3)."""
+        offsets = self.forward(img_a, img_b)
+        b, gh, gw = offsets.shape[0], offsets.shape[1], offsets.shape[2]
+        src = self.corners.reshape(1, 4, 2).expand(b * gh * gw, 4, 2)
+        dst = offsets.reshape(b * gh * gw, 4, 2) + src
+        h = dlt_solve(src, dst, ridge=1e-4, graph_safe=self.global_ihn.graph_safe)
+        out: torch.Tensor = h.reshape(b, gh, gw, 3, 3)
+        return out

@@ -91,6 +91,29 @@ def test_cuda_graph_replay_matches_eager():
     assert (out - ref).abs().max().item() < 1e-3
 
 
+def test_mesh_grid_uniform_reduces_to_global():
+    import torch
+
+    from cuda_motion_flow.learned.model import mesh_sampling_grid
+
+    h = torch.tensor([[1.0, 0.05, 3.0], [0.02, 1.0, 2.0], [1e-4, 0.0, 1.0]], device="cuda")
+    g1 = mesh_sampling_grid(h.reshape(1, 1, 1, 3, 3), 64, 80)
+    g8 = mesh_sampling_grid(h.reshape(1, 1, 1, 3, 3).expand(1, 8, 8, 3, 3).contiguous(), 64, 80)
+    assert torch.allclose(g1, g8, atol=1e-5)  # uniform mesh == single homography
+
+
+def test_mesh_ihn_shapes():
+    import torch
+
+    from cuda_motion_flow.learned.model import MeshIHN
+
+    m = MeshIHN(size=64, grid=(4, 4), iters=2).cuda().eval()
+    a = torch.rand(2, 1, 64, 64, device="cuda")
+    b = torch.rand(2, 1, 64, 64, device="cuda")
+    assert m(a, b).shape == (2, 4, 4, 4, 2)
+    assert m.predict_field(a, b).shape == (2, 4, 4, 3, 3)
+
+
 def test_ihn_forward_shapes():
     import torch
 
