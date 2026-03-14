@@ -33,6 +33,27 @@ def warp_frame(src: cp.ndarray, b: np.ndarray) -> cp.ndarray:
     return to_cupy(dst_t)
 
 
+def mesh_warp_frame(src: np.ndarray, field_inv: np.ndarray) -> np.ndarray:
+    """Warp a uint8 (H, W, C) frame by a per-cell field of inverse transforms (dst -> src).
+
+    Uses grid_sample over the bilinearly-blended per-cell sampling grid. With a 1x1 field this
+    is the single-homography warp.
+    """
+    import torch
+
+    from .learned.model import mesh_sampling_grid
+
+    h, w = src.shape[:2]
+    t = torch.as_tensor(src, device="cuda").permute(2, 0, 1).unsqueeze(0).float()
+    f = torch.as_tensor(field_inv, device="cuda", dtype=torch.float32).unsqueeze(0)
+    grid = mesh_sampling_grid(f, h, w)
+    out = torch.nn.functional.grid_sample(
+        t, grid, mode="bilinear", padding_mode="zeros", align_corners=True
+    )
+    arr: np.ndarray = out[0].permute(1, 2, 0).round().clamp(0, 255).to(torch.uint8).cpu().numpy()
+    return arr
+
+
 def _frame_quad(b: np.ndarray, w: int, h: int) -> np.ndarray:
     """Map the four source corners through B into destination coordinates."""
     corners = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float64)

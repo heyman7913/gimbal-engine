@@ -27,6 +27,14 @@ def test_integer_translation_shifts_pixels():
     assert np.array_equal(out[3:, 5:], img[:-3, :-5])
 
 
+def test_mesh_warp_identity_is_lossless():
+    from cuda_motion_flow.warp import mesh_warp_frame
+
+    img = (np.random.default_rng(4).random((48, 64, 3)) * 255).astype(np.uint8)
+    field = np.eye(3)[None, None]  # 1x1 identity field
+    assert np.array_equal(mesh_warp_frame(img, field), img)
+
+
 def test_crop_box_identity_is_full_frame():
     from cuda_motion_flow.warp import compute_crop_box
 
