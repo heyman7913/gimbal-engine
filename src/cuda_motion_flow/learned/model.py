@@ -303,7 +303,11 @@ class MeshIHN(nn.Module):
     corners: torch.Tensor
 
     def __init__(
-        self, size: int = 128, grid: tuple[int, int] = (8, 8), dim: int = 96, radius: int = 4,
+        self,
+        size: int = 128,
+        grid: tuple[int, int] = (8, 8),
+        dim: int = 96,
+        radius: int = 4,
         iters: int = 6,
     ) -> None:
         super().__init__()
@@ -335,7 +339,8 @@ class MeshIHN(nn.Module):
         cell = F.adaptive_avg_pool2d(cell, self.grid)  # (B, 8, gh, gw)
         gh, gw = self.grid
         residual = cell.permute(0, 2, 3, 1).reshape(b, gh, gw, 4, 2)
-        return g[:, None, None, :, :] + residual
+        offsets: torch.Tensor = g[:, None, None, :, :] + residual
+        return offsets
 
     def predict_field(self, img_a: torch.Tensor, img_b: torch.Tensor) -> torch.Tensor:
         """Per-cell homographies, shape (B, gh, gw, 3, 3)."""
