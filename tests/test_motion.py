@@ -1,5 +1,4 @@
 import numpy as np
-
 from cuda_motion_flow import trajectory
 from cuda_motion_flow.motion import MotionField
 

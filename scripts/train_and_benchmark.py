@@ -23,8 +23,15 @@ def main() -> None:
 
     if args.phase in ("train", "all"):
         summary = runner.train(args.quick)
-        print(json.dumps({k: summary[k] for k in (
-            "use_fused", "ihn_best_mace", "regression_best_mace", "phase_b")}, indent=2))
+        print(
+            json.dumps(
+                {
+                    k: summary[k]
+                    for k in ("use_fused", "ihn_best_mace", "regression_best_mace", "phase_b")
+                },
+                indent=2,
+            )
+        )
     if args.phase in ("phaseb", "all"):
         print("phase B:", json.dumps(runner.phaseb(args.quick), indent=2))
     if args.phase in ("benchmark", "all"):

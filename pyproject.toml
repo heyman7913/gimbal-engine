@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cuda-motion-flow"
-version = "2.0.0"
+version = "2.1.0"
 description = "Two interchangeable camera-motion estimators (classical CUDA vs learned IHN) behind one interface, benchmarked head to head for video stabilization."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -48,12 +48,13 @@ cuda-motion-flow = "cuda_motion_flow.cli:main"
 Homepage = "https://github.com/heyman7913/cuda-motion-flow"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["cuda_motion_flow*"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["src", "tests"]
+src = ["cuda_motion_flow", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
@@ -65,7 +66,7 @@ strict = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-files = ["src"]
+files = ["cuda_motion_flow"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

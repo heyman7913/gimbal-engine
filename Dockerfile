@@ -27,4 +27,4 @@ RUN uv pip install \
         pytest ruff mypy build twine
 
 WORKDIR /workspace
-ENV PYTHONPATH=/workspace/src
+ENV PYTHONPATH=/workspace

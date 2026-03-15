@@ -5,7 +5,6 @@ pytestmark = pytest.mark.cuda
 
 def test_fused_forward_matches_reference():
     import torch
-
     from cuda_motion_flow.learned.correlation import (
         FusedLocalCorrelation,
         local_correlation_reference,
@@ -21,7 +20,6 @@ def test_fused_forward_matches_reference():
 
 def test_fused_backward_matches_reference():
     import torch
-
     from cuda_motion_flow.learned.correlation import (
         FusedLocalCorrelation,
         local_correlation_reference,
@@ -60,7 +58,6 @@ def test_correlation_variants_match_v0():
 
 def test_fused_runs_under_bfloat16():
     import torch
-
     from cuda_motion_flow.learned.correlation import FusedLocalCorrelation
 
     fa = torch.randn(2, 8, 10, 12, device="cuda", dtype=torch.bfloat16, requires_grad=True)
@@ -73,7 +70,6 @@ def test_fused_runs_under_bfloat16():
 
 def test_fused_gradcheck_double():
     import torch
-
     from cuda_motion_flow.learned.correlation import FusedLocalCorrelation
 
     torch.manual_seed(2)

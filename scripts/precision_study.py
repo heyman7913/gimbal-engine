@@ -10,7 +10,6 @@ import json
 from pathlib import Path
 
 import torch
-
 from cuda_motion_flow.learned.correlation import local_correlation_reference
 from cuda_motion_flow.learned.data import SyntheticPairGenerator, load_image_pool
 from cuda_motion_flow.learned.losses import mace

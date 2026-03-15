@@ -14,7 +14,6 @@ import json
 from pathlib import Path
 
 import torch
-
 from cuda_motion_flow.learned.data import (
     SyntheticPairGenerator,
     SyntheticParallaxGenerator,

@@ -6,7 +6,6 @@ pytestmark = pytest.mark.cuda
 
 def test_identity_warp_is_lossless():
     import cupy as cp
-
     from cuda_motion_flow.warp import warp_frame
 
     img = (np.random.default_rng(0).random((64, 80, 3)) * 255).astype(np.uint8)
@@ -16,7 +15,6 @@ def test_identity_warp_is_lossless():
 
 def test_integer_translation_shifts_pixels():
     import cupy as cp
-
     from cuda_motion_flow.warp import warp_frame
 
     img = (np.random.default_rng(1).random((64, 80, 3)) * 255).astype(np.uint8)
