@@ -1,8 +1,8 @@
 {
   "throughput": {
-    "corr_ref_fp32_ms": 2.303,
-    "corr_ref_fp16_ms": 2.3424,
-    "corr_ref_bf16_ms": 2.44,
+    "corr_ref_fp32_ms": 1.7008,
+    "corr_ref_fp16_ms": 2.4444,
+    "corr_ref_bf16_ms": 2.8785,
     "corr_fp16_rel_err": 0.0007
   },
   "accuracy": {

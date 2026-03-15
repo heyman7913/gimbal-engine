@@ -1,10 +1,10 @@
 {
-  "eager_ms_per_call": 45.8235,
-  "cuda_kernel_ms_per_call": 7.651,
+  "eager_ms_per_call": 41.1687,
+  "cuda_kernel_ms_per_call": 7.4379,
   "kernel_launches_per_call": 2179.0,
-  "gpu_busy_fraction": 0.167,
-  "graph_ms_per_call": 3.6789,
-  "graph_speedup": 12.46,
+  "gpu_busy_fraction": 0.181,
+  "graph_ms_per_call": 3.6108,
+  "graph_speedup": 11.4,
   "graph_vs_eager_max_err": 4.017353057861328e-05,
   "captured": true
 }

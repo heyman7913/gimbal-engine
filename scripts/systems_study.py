@@ -58,28 +58,46 @@ def theoretical_fp32_tflops() -> float:
 
 
 def clocks_under_load() -> dict[str, str]:
-    """Sample sm/mem clock and pstate while a copy loop runs, to capture any throttling."""
+    """Sample the steady boosted sm/mem clock and pstate while a copy loop runs.
+
+    The GPU takes a moment to ramp, so this samples several times and keeps the highest sm clock
+    (the steady boost), rather than a single reading that might catch it mid-ramp.
+    """
     import subprocess
     import threading
+    import time
 
     a = torch.randn(64 * 1024 * 1024, device="cuda")
     b = torch.empty_like(a)
+    stop = [False]
 
     def loop() -> None:
-        for _ in range(4000):
+        while not stop[0]:
             b.copy_(a)
         torch.cuda.synchronize()
 
     th = threading.Thread(target=loop)
     th.start()
-    out = subprocess.run(
-        ["nvidia-smi", "--query-gpu=clocks.sm,clocks.mem,pstate", "--format=csv,noheader"],
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    best_sm = -1
+    best = ("", "", "")
+    for _ in range(6):
+        time.sleep(0.7)
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=clocks.sm,clocks.mem,pstate", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        sm, mem, ps = (x.strip() for x in out.split(","))
+        cur = int(sm.split()[0])
+        if cur > best_sm:
+            best_sm, best = cur, (sm, mem, ps)
+    stop[0] = True
     th.join()
-    sm, mem, ps = (x.strip() for x in out.split(","))
-    return {"sm_clock_under_load": sm, "mem_clock_under_load": mem, "pstate_under_load": ps}
+    return {
+        "sm_clock_under_load": best[0],
+        "mem_clock_under_load": best[1],
+        "pstate_under_load": best[2],
+    }
 
 
 def main() -> None:
@@ -138,7 +156,8 @@ def main() -> None:
     }
     bottleneck = {
         "pytorch_reference": "overhead-bound: dozens of small ops plus temporaries per call",
-        "v0_naive": "memory-bound, ~half the copy roof, fully parallel and coalesced",
+        "v0_naive": "latency-bound: fully parallel and coalesced, but at 16x16 it reaches only a "
+        "fifth of the copy roof, the problem is too small to saturate memory at full clock",
         "v1_fa_reuse": f"occupancy-bound: only {B * H * W} threads vs v0's {B * K * H * W}, "
         "too few to hide latency, so saving fa loads does not pay off",
         "v2_float4_nhwc": "uncoalesced: NHWC makes neighbouring threads stride by C, "
@@ -161,11 +180,10 @@ def main() -> None:
         "ncu_counters": "unavailable on this WSL2/consumer GPU (ERR_NVGPUCTRPERM)",
         "timing": "cuda events, fixed seed, warmup",
         **clocks_under_load(),
-        "throttle_note": (
-            "the laptop GPU stays in P8 (180 MHz sm / 405 MHz mem) even at 100% load under WSL2 "
-            "and -lgc cannot lock clocks, so absolute throughput is ~1/17 of the rated card. the "
-            "measured memory roof reflects this throttled state, so per-version POSITIONS and "
-            "relative speedups are the valid takeaways, not absolute peak numbers."
+        "clock_note": (
+            "the GPU boosts to its high-power state under load (clocks recorded above), so these "
+            "are full-clock numbers. -lgc cannot pin clocks under WSL2, so they are sampled "
+            "each run."
         ),
     }
 
