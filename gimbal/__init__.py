@@ -1,4 +1,4 @@
-"""cuda-motion-flow: classical-vs-learned camera-motion estimation for video stabilization."""
+"""gimbal: classical-vs-learned camera-motion estimation for video stabilization."""
 
 from __future__ import annotations
 

@@ -19,7 +19,7 @@ if os.environ.get("CMF_SKIP_CUDA_BUILD") != "1":
     sources = [f"cuda-src/{f}" for f in ("bindings.cpp", "correlation.cu", "classical.cu")]
     ext_modules = [
         CUDAExtension(
-            name="cuda_motion_flow._cuda",
+            name="gimbal._cuda",
             sources=sources,
             include_dirs=["cuda-src"],
         )

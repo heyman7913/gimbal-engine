@@ -17,11 +17,11 @@ click.rich_click.STYLE_OPTION = "cyan"
 click.rich_click.STYLE_COMMAND = "bold green"
 
 console = Console()
-BANNER = "[bold cyan]cuda-motion-flow[/]  [dim]classical vs learned camera-motion, head to head[/]"
+BANNER = "[bold cyan]gimbal[/]  [dim]classical vs learned camera-motion, head to head[/]"
 
 
 @click.group()
-@click.version_option(package_name="cuda-motion-flow")
+@click.version_option(package_name="gimbal_engine")
 def main() -> None:
     """GPU video stabilization with two interchangeable motion estimators."""
 

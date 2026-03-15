@@ -31,7 +31,7 @@ def require_cuda() -> None:
     """Hard-fail with a clear message if no CUDA device is usable."""
     if not cuda_is_available():
         raise CudaUnavailableError(
-            "cuda-motion-flow requires an NVIDIA CUDA device visible to both torch and "
+            "gimbal requires an NVIDIA CUDA device visible to both torch and "
             "CuPy. No usable device was found. This project has no CPU fallback."
         )
 

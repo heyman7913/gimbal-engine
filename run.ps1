@@ -11,7 +11,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Image = "cuda-motion-flow:dev"
+$Image = "gimbal:dev"
 $Root = $PSScriptRoot
 
 $Mounts = @(
@@ -29,6 +29,6 @@ switch ($Target) {
     "smoke" { docker @RunArgs python3 scripts/smoke_test.py }
     "test"  { docker @RunArgs bash -lc "$EnsureExt && python3 -m pytest $($Rest -join ' ')" }
     "shell" { docker @($RunArgs[0..($RunArgs.Length - 2)] + @("-it", $Image, "bash")) }
-    "cli"   { docker @RunArgs bash -lc "$EnsureExt && python3 -m cuda_motion_flow.cli $($Rest -join ' ')" }
+    "cli"   { docker @RunArgs bash -lc "$EnsureExt && python3 -m gimbal.cli $($Rest -join ' ')" }
     default { Write-Error "unknown target '$Target' (image|ext|smoke|test|shell|cli)" }
 }
