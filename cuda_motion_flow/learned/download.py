@@ -1,7 +1,9 @@
 """Grabs the trained weights.
 
 The weights don't go in the wheel (too big), so the first time you need them they get pulled
-from a URL and cached. Training writes to the same place.
+from a URL and cached under the user cache dir (~/.cache on Linux, %LOCALAPPDATA% on Windows).
+Point CUDA_MOTION_FLOW_WEIGHTS_DIR at a local training output (e.g. the repo's weights/) to use
+those instead.
 """
 
 from __future__ import annotations
@@ -14,7 +16,14 @@ DEFAULT_URL = "https://github.com/heyman7913/cuda-motion-flow/releases/latest/do
 
 
 def weights_dir() -> Path:
-    return Path(os.environ.get("CUDA_MOTION_FLOW_WEIGHTS_DIR", "weights"))
+    override = os.environ.get("CUDA_MOTION_FLOW_WEIGHTS_DIR")
+    if override:
+        return Path(override)
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    else:
+        base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(base) / "cuda-motion-flow"
 
 
 def local_weights_path(name: str = "ihn.pt") -> Path:
