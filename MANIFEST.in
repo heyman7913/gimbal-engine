@@ -1,1 +1,1 @@
-recursive-include csrc *.cu *.cpp *.h
+recursive-include cuda-src *.cu *.cpp *.h

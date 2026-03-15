@@ -2,7 +2,7 @@
 
 The correlation at offset (dy, dx) is just the channel dot product of feature map A at (y, x)
 with B at (y+dy, x+dx), divided by sqrt(C). I have two versions: a plain PyTorch one that I
-trust as the reference, and the fused CUDA one (compiled extension under csrc/). The fused one
+trust as the reference, and the fused CUDA one (compiled extension under cuda-src/). The fused one
 is only switched on after it passes gradcheck against the reference, so if I got the kernel
 wrong training still works.
 """

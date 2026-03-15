@@ -8,14 +8,14 @@ from setuptools import setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 # relative paths, setuptools rejects absolute ones when building the wheel
-sources = [f"csrc/{f}" for f in ("bindings.cpp", "correlation.cu", "classical.cu")]
+sources = [f"cuda-src/{f}" for f in ("bindings.cpp", "correlation.cu", "classical.cu")]
 
 setup(
     ext_modules=[
         CUDAExtension(
             name="cuda_motion_flow._cuda",
             sources=sources,
-            include_dirs=["csrc"],
+            include_dirs=["cuda-src"],
         )
     ],
     cmdclass={"build_ext": BuildExtension},
