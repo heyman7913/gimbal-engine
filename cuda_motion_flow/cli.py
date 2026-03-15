@@ -29,6 +29,7 @@ def main() -> None:
 @main.command()
 def info() -> None:
     """Show the GPU, compute capability, memory, and library versions."""
+    _require_gpu_stack()
     import cupy as cp
     import torch
 
@@ -68,6 +69,7 @@ def stabilize(
     export_trajectory: str | None,
 ) -> None:
     """Stabilize INPUT_VIDEO into OUTPUT_VIDEO."""
+    _require_gpu_stack()
     from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
     from ._gpu import used_vram_mb
@@ -119,6 +121,7 @@ def stabilize(
 )
 def train(quick: bool, phase_b: bool) -> None:
     """Train the IHN: supervised on COCO, then guarded unsupervised on NUS."""
+    _require_gpu_stack()
     from . import runner
 
     console.print(BANNER)
@@ -133,6 +136,7 @@ def train(quick: bool, phase_b: bool) -> None:
 @main.command()
 def benchmark() -> None:
     """Run both estimators on the NUS subset and write the comparison."""
+    _require_gpu_stack()
     from . import runner
     from .bench.harness import category_table
 
@@ -165,6 +169,18 @@ def benchmark() -> None:
             f"[bold]{mb['memory_ratio']:.2f}x[/] less memory than the PyTorch reference"
         )
     console.print(f"wrote [green]{runner.OUT}/benchmark.json[/], benchmark.csv, the plot")
+
+
+def _require_gpu_stack() -> None:
+    """Fail with a readable message, not a traceback, when the GPU runtime is missing."""
+    import importlib.util
+
+    missing = [m for m in ("torch", "cupy") if importlib.util.find_spec(m) is None]
+    if missing:
+        raise click.ClickException(
+            f"this command needs the GPU runtime ({' and '.join(missing)} not importable). "
+            "install torch + cupy built for your CUDA, or use the project's Docker image."
+        )
 
 
 def _build_estimator(kind: str) -> Estimator:
