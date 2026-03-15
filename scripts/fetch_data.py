@@ -2,7 +2,7 @@
 
 import sys
 
-from cuda_motion_flow.bench.datasets import fetch_coco, fetch_nus
+from gimbal.bench.datasets import fetch_coco, fetch_nus
 
 what = sys.argv[1] if len(sys.argv) > 1 else "all"
 

@@ -17,7 +17,7 @@ import torch.nn.functional as F
 
 
 def _ext() -> Any:
-    import cuda_motion_flow._cuda as _c
+    import gimbal._cuda as _c
 
     return _c
 

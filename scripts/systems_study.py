@@ -15,10 +15,10 @@ import csv
 import json
 from pathlib import Path
 
-import cuda_motion_flow._cuda as ext
+import gimbal._cuda as ext
 import numpy as np
 import torch
-from cuda_motion_flow.learned.correlation import local_correlation_reference
+from gimbal.learned.correlation import local_correlation_reference
 
 B, C, H, W, R = 32, 96, 16, 16, 4
 K = (2 * R + 1) ** 2

@@ -10,10 +10,10 @@ import json
 from pathlib import Path
 
 import torch
-from cuda_motion_flow.learned.correlation import local_correlation_reference
-from cuda_motion_flow.learned.data import SyntheticPairGenerator, load_image_pool
-from cuda_motion_flow.learned.losses import mace
-from cuda_motion_flow.learned.model import IHN
+from gimbal.learned.correlation import local_correlation_reference
+from gimbal.learned.data import SyntheticPairGenerator, load_image_pool
+from gimbal.learned.losses import mace
+from gimbal.learned.model import IHN
 
 OUT = Path("docs")
 WEIGHTS = Path("weights/ihn.pt")

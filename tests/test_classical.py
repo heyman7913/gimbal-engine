@@ -18,7 +18,7 @@ def _apply(h: np.ndarray, x: float, y: float) -> tuple[float, float]:
 
 
 def test_classical_recovers_translation():
-    from cuda_motion_flow.estimators.classical import ClassicalEstimator
+    from gimbal.estimators.classical import ClassicalEstimator
 
     h, w = 240, 320
     a = _blocky_image(h, w, seed=7)
@@ -34,7 +34,7 @@ def test_classical_recovers_translation():
 
 
 def test_classical_recovers_small_rotation():
-    from cuda_motion_flow.estimators.classical import ClassicalEstimator
+    from gimbal.estimators.classical import ClassicalEstimator
 
     h, w = 240, 320
     a = _blocky_image(h, w, seed=11)

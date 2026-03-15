@@ -14,13 +14,13 @@ import json
 from pathlib import Path
 
 import torch
-from cuda_motion_flow.learned.data import (
+from gimbal.learned.data import (
     SyntheticPairGenerator,
     SyntheticParallaxGenerator,
     load_image_pool,
 )
-from cuda_motion_flow.learned.losses import mace, mesh_corner_loss, mesh_smoothness
-from cuda_motion_flow.learned.model import MeshIHN
+from gimbal.learned.losses import mace, mesh_corner_loss, mesh_smoothness
+from gimbal.learned.model import MeshIHN
 
 OUT = Path("docs")
 

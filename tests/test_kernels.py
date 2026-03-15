@@ -11,7 +11,7 @@ def _interior(a: np.ndarray, m: int = 3) -> np.ndarray:
 
 def test_scharr_matches_opencv():
     import cupy as cp
-    from cuda_motion_flow.cuda.optical_flow import scharr_gradients
+    from gimbal.cuda.optical_flow import scharr_gradients
 
     img = (np.random.default_rng(0).random((96, 128)) * 255).astype(np.float32)
     ix_ref = cv2.Scharr(img, cv2.CV_32F, 1, 0) / 32.0
@@ -23,7 +23,7 @@ def test_scharr_matches_opencv():
 
 def test_downsample_matches_pyrdown():
     import cupy as cp
-    from cuda_motion_flow.cuda.optical_flow import downsample
+    from gimbal.cuda.optical_flow import downsample
 
     img = (np.random.default_rng(1).random((96, 128)) * 255).astype(np.float32)
     ref = cv2.pyrDown(img)
@@ -34,7 +34,7 @@ def test_downsample_matches_pyrdown():
 
 def test_shi_tomasi_matches_numpy_reference():
     import cupy as cp
-    from cuda_motion_flow.cuda.optical_flow import scharr_gradients, shi_tomasi_response
+    from gimbal.cuda.optical_flow import scharr_gradients, shi_tomasi_response
 
     img = (np.random.default_rng(2).random((80, 100)) * 255).astype(np.float32)
     ix, iy = scharr_gradients(cp.asarray(img))

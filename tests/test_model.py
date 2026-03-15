@@ -6,7 +6,7 @@ pytestmark = pytest.mark.cuda
 
 def test_dlt_recovers_identity_from_zero_offset():
     import torch
-    from cuda_motion_flow.learned.model import dlt_solve
+    from gimbal.learned.model import dlt_solve
 
     src = torch.tensor([[[0.0, 0.0], [127.0, 0.0], [127.0, 127.0], [0.0, 127.0]]], device="cuda")
     h = dlt_solve(src, src)
@@ -15,7 +15,7 @@ def test_dlt_recovers_identity_from_zero_offset():
 
 def test_dlt_recovers_known_homography():
     import torch
-    from cuda_motion_flow.learned.model import dlt_solve
+    from gimbal.learned.model import dlt_solve
 
     rng = np.random.default_rng(0)
     h_true = np.eye(3)
@@ -35,7 +35,7 @@ def test_dlt_recovers_known_homography():
 
 def test_dlt_gradcheck():
     import torch
-    from cuda_motion_flow.learned.model import dlt_solve
+    from gimbal.learned.model import dlt_solve
 
     src = torch.tensor(
         [[[0.0, 0.0], [120.0, 0.0], [120.0, 120.0], [0.0, 120.0]]],
@@ -51,7 +51,7 @@ def test_dlt_gradcheck():
 
 def test_solve_nopivot_matches_cusolver():
     import torch
-    from cuda_motion_flow.learned.model import _solve_nopivot
+    from gimbal.learned.model import _solve_nopivot
 
     torch.manual_seed(0)
     a = torch.randn(5, 8, 8, device="cuda")
@@ -62,7 +62,7 @@ def test_solve_nopivot_matches_cusolver():
 
 def test_cuda_graph_replay_matches_eager():
     import torch
-    from cuda_motion_flow.learned.model import IHN
+    from gimbal.learned.model import IHN
 
     m = IHN(size=64, iters=3).cuda().eval()
     a = torch.rand(1, 1, 64, 64, device="cuda")
@@ -88,7 +88,7 @@ def test_cuda_graph_replay_matches_eager():
 
 def test_mesh_grid_uniform_reduces_to_global():
     import torch
-    from cuda_motion_flow.learned.model import mesh_sampling_grid
+    from gimbal.learned.model import mesh_sampling_grid
 
     h = torch.tensor([[1.0, 0.05, 3.0], [0.02, 1.0, 2.0], [1e-4, 0.0, 1.0]], device="cuda")
     g1 = mesh_sampling_grid(h.reshape(1, 1, 1, 3, 3), 64, 80)
@@ -98,7 +98,7 @@ def test_mesh_grid_uniform_reduces_to_global():
 
 def test_mesh_ihn_shapes():
     import torch
-    from cuda_motion_flow.learned.model import MeshIHN
+    from gimbal.learned.model import MeshIHN
 
     m = MeshIHN(size=64, grid=(4, 4), iters=2).cuda().eval()
     a = torch.rand(2, 1, 64, 64, device="cuda")
@@ -109,7 +109,7 @@ def test_mesh_ihn_shapes():
 
 def test_ihn_forward_shapes():
     import torch
-    from cuda_motion_flow.learned.model import IHN, RegressionHomographyNet
+    from gimbal.learned.model import IHN, RegressionHomographyNet
 
     a = torch.rand(2, 1, 128, 128, device="cuda")
     b = torch.rand(2, 1, 128, 128, device="cuda")

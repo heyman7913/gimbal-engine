@@ -1,5 +1,5 @@
 import numpy as np
-from cuda_motion_flow import metrics
+from gimbal import metrics
 
 
 def test_distortion_identity_is_one():

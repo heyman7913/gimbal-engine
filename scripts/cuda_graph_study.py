@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 import torch
-from cuda_motion_flow.learned.model import IHN
+from gimbal.learned.model import IHN
 
 OUT = Path("docs")
 

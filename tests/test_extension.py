@@ -4,7 +4,7 @@ pytestmark = pytest.mark.cuda
 
 
 def test_extension_imports_and_runs():
-    import cuda_motion_flow._cuda as ext
+    import gimbal._cuda as ext
     import torch
 
     fa = torch.randn(2, 8, 12, 16, device="cuda")

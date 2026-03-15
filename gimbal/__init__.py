@@ -17,7 +17,7 @@ __all__ = [
     "stabilize",
 ]
 
-# public name -> (submodule, attribute), resolved lazily so `import cuda_motion_flow` (and the
+# public name -> (submodule, attribute), resolved lazily so `import gimbal` (and the
 # CLI's --help) stays cheap and does not pull in torch/cupy until an estimator is actually used.
 _LAZY = {
     "Estimator": ("estimators.base", "Estimator"),

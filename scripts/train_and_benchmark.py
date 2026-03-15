@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from cuda_motion_flow import runner
+from gimbal import runner
 
 
 def main() -> None:

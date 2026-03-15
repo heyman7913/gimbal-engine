@@ -1,5 +1,5 @@
 import numpy as np
-from cuda_motion_flow import trajectory
+from gimbal import trajectory
 
 
 def _translation_h(tx: float, ty: float) -> np.ndarray:

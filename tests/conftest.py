@@ -3,7 +3,7 @@ import pytest
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Skip tests marked `cuda` when no CUDA device is available."""
-    from cuda_motion_flow._gpu import cuda_is_available
+    from gimbal._gpu import cuda_is_available
 
     if cuda_is_available():
         return

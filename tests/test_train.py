@@ -7,9 +7,9 @@ pytestmark = pytest.mark.cuda
 
 def test_supervised_training_step_runs():
     import torch
-    from cuda_motion_flow.learned.data import SyntheticPairGenerator
-    from cuda_motion_flow.learned.model import IHN
-    from cuda_motion_flow.learned.train import PhaseAConfig, train_supervised
+    from gimbal.learned.data import SyntheticPairGenerator
+    from gimbal.learned.model import IHN
+    from gimbal.learned.train import PhaseAConfig, train_supervised
 
     pool = (torch.rand(32, 120, 160) * 255).to(torch.uint8)
     gen = SyntheticPairGenerator(pool, patch=64, rho=12, margin=8)
@@ -25,8 +25,8 @@ def test_supervised_training_step_runs():
 
 def test_unsupervised_training_step_runs():
     import torch
-    from cuda_motion_flow.learned.model import IHN
-    from cuda_motion_flow.learned.train import PhaseBConfig, train_unsupervised
+    from gimbal.learned.model import IHN
+    from gimbal.learned.train import PhaseBConfig, train_unsupervised
 
     model = IHN(size=64, iters=3).cuda()
     pairs = torch.rand(16, 2, 64, 64)

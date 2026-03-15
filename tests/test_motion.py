@@ -1,6 +1,6 @@
 import numpy as np
-from cuda_motion_flow import trajectory
-from cuda_motion_flow.motion import MotionField
+from gimbal import trajectory
+from gimbal.motion import MotionField
 
 
 def test_global_field_roundtrip():

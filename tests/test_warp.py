@@ -6,7 +6,7 @@ pytestmark = pytest.mark.cuda
 
 def test_identity_warp_is_lossless():
     import cupy as cp
-    from cuda_motion_flow.warp import warp_frame
+    from gimbal.warp import warp_frame
 
     img = (np.random.default_rng(0).random((64, 80, 3)) * 255).astype(np.uint8)
     out = cp.asnumpy(warp_frame(cp.asarray(img), np.eye(3)))
@@ -15,7 +15,7 @@ def test_identity_warp_is_lossless():
 
 def test_integer_translation_shifts_pixels():
     import cupy as cp
-    from cuda_motion_flow.warp import warp_frame
+    from gimbal.warp import warp_frame
 
     img = (np.random.default_rng(1).random((64, 80, 3)) * 255).astype(np.uint8)
     t = np.eye(3)
@@ -26,7 +26,7 @@ def test_integer_translation_shifts_pixels():
 
 
 def test_mesh_warp_identity_is_lossless():
-    from cuda_motion_flow.warp import mesh_warp_frame
+    from gimbal.warp import mesh_warp_frame
 
     img = (np.random.default_rng(4).random((48, 64, 3)) * 255).astype(np.uint8)
     field = np.eye(3)[None, None]  # 1x1 identity field
@@ -34,7 +34,7 @@ def test_mesh_warp_identity_is_lossless():
 
 
 def test_crop_box_identity_is_full_frame():
-    from cuda_motion_flow.warp import compute_crop_box
+    from gimbal.warp import compute_crop_box
 
     box = compute_crop_box(np.stack([np.eye(3)] * 4), 80, 64)
     assert box == (0, 0, 80, 64)

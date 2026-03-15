@@ -24,8 +24,8 @@ def _shaky_clip(n: int = 40, h: int = 240, w: int = 320) -> list[np.ndarray]:
 
 
 def test_pipeline_stabilizes_with_classical():
-    from cuda_motion_flow.estimators.classical import ClassicalEstimator
-    from cuda_motion_flow.pipeline import stabilize
+    from gimbal.estimators.classical import ClassicalEstimator
+    from gimbal.pipeline import stabilize
 
     frames = _shaky_clip()
     result = stabilize(frames, ClassicalEstimator(), smoother="gaussian", strength=0.85)

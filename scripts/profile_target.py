@@ -3,7 +3,7 @@
 Shapes match the IHN at 16x16 features (batch 32, 96 channels, radius 4). Used by ncu.
 """
 
-import cuda_motion_flow._cuda as ext
+import gimbal._cuda as ext
 import torch
 
 torch.manual_seed(0)
