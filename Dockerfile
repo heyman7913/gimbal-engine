@@ -24,7 +24,7 @@ RUN uv pip install \
         rich rich-click click \
         matplotlib \
         ninja \
-        pytest ruff mypy build twine
+        pytest ruff mypy build twine wheel
 
 WORKDIR /workspace
 ENV PYTHONPATH=/workspace
