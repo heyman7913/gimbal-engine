@@ -5,7 +5,7 @@ Trains MeshIHN briefly on the synthetic parallax task, then checks two things:
   2. on global motion the mesh reduces to the global model (cells agree, similar MACE).
 
 This is the foundation demonstration; the full training + smoothness sweep comes later. Writes
-docs/mesh_sanity.json.
+perf_study/mesh_sanity.json.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from gimbal.learned.data import (
 from gimbal.learned.losses import mace, mesh_corner_loss, mesh_smoothness
 from gimbal.learned.model import MeshIHN
 
-OUT = Path("docs")
+OUT = Path("perf_study")
 
 
 def _bcast(off_global: torch.Tensor, like: torch.Tensor) -> torch.Tensor:

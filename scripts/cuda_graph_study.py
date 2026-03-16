@@ -3,7 +3,7 @@
 Each refinement iteration fires several small kernels (encoder convs, correlation, the DLT
 solve, grid_sample), so at this size the GPU is likely idle between launches. This measures the
 eager latency, breaks it down with the profiler, then captures the whole predict into a CUDA
-graph and replays it. Writes docs/cuda_graph.json.
+graph and replays it. Writes perf_study/cuda_graph.json.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from pathlib import Path
 import torch
 from gimbal.learned.model import IHN
 
-OUT = Path("docs")
+OUT = Path("perf_study")
 
 
 def cuda_time_ms(fn, reps: int = 100, warmup: int = 20) -> float:

@@ -1,7 +1,7 @@
 """Precision study: does computing the correlation / model in fp16 or bf16 move MACE, and is it
 worth it for throughput. fp8 is assessed honestly rather than forced.
 
-Writes docs/precision.json.
+Writes perf_study/precision.json.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from gimbal.learned.losses import mace
 from gimbal.learned.model import IHN
 from gimbal.learned.pretrained import bundled_weights_file
 
-OUT = Path("docs")
+OUT = Path("perf_study")
 
 
 def cuda_time_ms(fn, reps: int = 200, warmup: int = 30) -> float:

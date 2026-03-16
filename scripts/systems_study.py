@@ -6,7 +6,7 @@ from first principles: FLOPs and the essential data movement are counted analyti
 compute roof is the card's theoretical FP32 peak, and the memory roof is measured with a
 saturating copy. Everything is reproducible with fixed seeds and a warmup.
 
-Emits docs/optimization_log.{json,csv} and docs/roofline.png.
+Emits perf_study/optimization_log.{json,csv} and perf_study/roofline.png.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ B, C, H, W, R = 32, 96, 16, 16, 4
 K = (2 * R + 1) ** 2
 REPS = 200
 WARMUP = 30
-OUT = Path("docs")
+OUT = Path("perf_study")
 
 
 def cuda_time_ms(fn, reps: int = REPS, warmup: int = WARMUP) -> float:
