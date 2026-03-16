@@ -1,1 +1,2 @@
-recursive-include cuda-src *.cu *.cpp *.h
+recursive-include cuda-src *.cu *.cuh *.cpp *.h
+recursive-include gimbal/weights *.pt

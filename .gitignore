@@ -34,8 +34,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# project artifacts (weights fetched by the download helper; not tracked)
-weights/
+# project artifacts; the shipped weights live in gimbal/weights/ and are tracked
+/weights/
 outputs/
 data/
 *.mp4

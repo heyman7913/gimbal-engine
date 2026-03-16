@@ -47,9 +47,15 @@ gimbal = "gimbal.cli:main"
 [project.urls]
 Homepage = "https://github.com/heyman7913/cuda-motion-flow"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["gimbal*"]
+
+[tool.setuptools.package-data]
+gimbal = ["weights/*.pt"]
 
 [tool.ruff]
 line-length = 100
