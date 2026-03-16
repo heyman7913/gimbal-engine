@@ -87,7 +87,7 @@ def benchmark(categories: tuple[str, ...] = BENCHMARK_CATEGORIES) -> BenchmarkRe
     bench_clips = [c for c in bench_clips if c.category in categories]
     estimators = {
         "classical": ClassicalEstimator(),
-        "ihn": LearnedEstimator(weights_path=WEIGHTS if WEIGHTS.exists() else None),
+        "ihn": LearnedEstimator(),  # bundled weights, the ones that ship
     }
     report = run_benchmark(bench_clips, estimators)
     report.scope = {

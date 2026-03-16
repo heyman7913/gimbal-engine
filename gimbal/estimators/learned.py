@@ -31,13 +31,19 @@ class LearnedEstimator(Estimator):
     ) -> None:
         import torch
 
+        from ..learned.pretrained import bundled_weights_file
+
         require_cuda()
         self.size = size
         self.model = IHN(size=size, iters=iters).cuda().eval()
         self.model.use_fused = use_fused
-        if weights_path is not None:
+        # default to the weights bundled in the package; weights_path overrides with a local file
+        if weights_path is None:
+            with bundled_weights_file() as path:
+                state = torch.load(str(path), map_location="cuda")
+        else:
             state = torch.load(str(weights_path), map_location="cuda")
-            self.model.load_state_dict(state)
+        self.model.load_state_dict(state)
 
     def load_state_dict(self, state: dict[str, Any]) -> None:
         self.model.load_state_dict(state)

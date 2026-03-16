@@ -14,9 +14,9 @@ from gimbal.learned.correlation import local_correlation_reference
 from gimbal.learned.data import SyntheticPairGenerator, load_image_pool
 from gimbal.learned.losses import mace
 from gimbal.learned.model import IHN
+from gimbal.learned.pretrained import bundled_weights_file
 
 OUT = Path("docs")
-WEIGHTS = Path("weights/ihn.pt")
 
 
 def cuda_time_ms(fn, reps: int = 200, warmup: int = 30) -> float:
@@ -82,8 +82,8 @@ def fp8_assessment() -> dict[str, object]:
 def main() -> None:
     torch.manual_seed(0)
     model = IHN(size=128, iters=6).cuda().eval()
-    if WEIGHTS.exists():
-        model.load_state_dict(torch.load(str(WEIGHTS), map_location="cuda"))
+    with bundled_weights_file() as path:
+        model.load_state_dict(torch.load(str(path), map_location="cuda"))
 
     pool = load_image_pool("data/coco", size=(240, 320), limit=200)
     gen = SyntheticPairGenerator(pool, patch=128, rho=32, seed=7)
@@ -93,7 +93,7 @@ def main() -> None:
         "throughput": correlation_throughput(),
         "accuracy": mace_by_precision(model, val),
         "fp8": fp8_assessment(),
-        "weights_loaded": WEIGHTS.exists(),
+        "weights_loaded": True,
     }
     OUT.mkdir(exist_ok=True)
     (OUT / "precision.json").write_text(json.dumps(result, indent=2))

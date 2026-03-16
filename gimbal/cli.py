@@ -189,9 +189,8 @@ def _build_estimator(kind: str) -> Estimator:
 
         return ClassicalEstimator()
     from .estimators.learned import LearnedEstimator
-    from .learned.download import ensure_weights
 
-    return LearnedEstimator(weights_path=ensure_weights())
+    return LearnedEstimator()
 
 
 def _metrics_table(metrics: dict[str, float], title: str, vram_mb: float) -> None:
