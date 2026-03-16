@@ -17,7 +17,6 @@ $Root = $PSScriptRoot
 $Mounts = @(
     "-v", "${Root}:/workspace",
     "-v", "${Root}/data:/workspace/data",
-    "-v", "${Root}/weights:/workspace/weights",
     "-v", "${Root}/outputs:/workspace/outputs"
 )
 $RunArgs = @("run", "--rm", "--gpus", "all") + $Mounts + @("-w", "/workspace", $Image)

@@ -17,7 +17,7 @@ from .learned.driver import build_pairs, run_two_phase, stability_metric
 from .learned.model import IHN
 from .learned.train import PhaseAConfig, PhaseBConfig, phase_b_with_guard
 
-WEIGHTS = Path("weights/ihn.pt")
+WEIGHTS = Path("gimbal/weights/ihn.pt")  # training updates the bundled weights in place
 OUT = Path("outputs")
 
 
