@@ -181,6 +181,15 @@ def _require_gpu_stack() -> None:
             f"this command needs the GPU runtime ({' and '.join(missing)} not importable). "
             "install torch + cupy built for your CUDA, or use the project's Docker image."
         )
+    # check the device with torch first; this short-circuits before any cupy init, which can
+    # abort hard when there is no visible device.
+    from ._gpu import cuda_is_available
+
+    if not cuda_is_available():
+        raise click.ClickException(
+            "no usable CUDA device was found. gimbal is GPU-only with no CPU fallback; "
+            "run on a machine with an NVIDIA GPU and a matching driver."
+        )
 
 
 def _build_estimator(kind: str) -> Estimator:
