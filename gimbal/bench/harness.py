@@ -46,6 +46,7 @@ class BenchmarkReport:
     results: list[ClipResult] = field(default_factory=list)
     environment: dict[str, str] = field(default_factory=dict)
     correlation_microbench: dict[str, float] = field(default_factory=dict)
+    scope: dict[str, object] = field(default_factory=dict)
 
 
 def time_estimator(
@@ -92,6 +93,7 @@ def write_report(report: BenchmarkReport, out_dir: str | Path) -> None:
     with (out / "benchmark.json").open("w", encoding="utf-8") as f:
         json.dump(
             {
+                "scope": report.scope,
                 "environment": report.environment,
                 "correlation_microbench": report.correlation_microbench,
                 "results": [_flatten(r) for r in report.results],

@@ -77,14 +77,26 @@ def phaseb(quick: bool = False) -> dict[str, Any]:
     return result
 
 
-def benchmark() -> BenchmarkReport:
+# the NUS categories this run reports on; the other four are benchmarked separately
+BENCHMARK_CATEGORIES = ("Regular", "QuickRotation")
+
+
+def benchmark(categories: tuple[str, ...] = BENCHMARK_CATEGORIES) -> BenchmarkReport:
     torch.manual_seed(0)
     bench_clips, _, _ = splits()
+    bench_clips = [c for c in bench_clips if c.category in categories]
     estimators = {
         "classical": ClassicalEstimator(),
         "ihn": LearnedEstimator(weights_path=WEIGHTS if WEIGHTS.exists() else None),
     }
     report = run_benchmark(bench_clips, estimators)
+    report.scope = {
+        "categories": list(categories),
+        "note": (
+            "subset run on the NUS Regular and QuickRotation categories; the remaining four "
+            "categories (Zooming, Parallax, Crowd, Running) are not included in this run"
+        ),
+    }
     write_report(report, OUT)
     plot_report(report, OUT / "stability_by_category.png")
     return report
