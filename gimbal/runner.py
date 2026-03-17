@@ -9,7 +9,7 @@ from typing import Any
 
 import torch
 
-from .bench.datasets import Clip, coco_root, nus_clips
+from .bench.datasets import NUS_CATEGORIES, Clip, coco_root, nus_clips
 from .bench.harness import BenchmarkReport, plot_report, run_benchmark, write_report
 from .estimators.classical import ClassicalEstimator
 from .estimators.learned import LearnedEstimator
@@ -77,24 +77,26 @@ def phaseb(quick: bool = False) -> dict[str, Any]:
     return result
 
 
-# the NUS categories this run reports on; the other four are benchmarked separately
-BENCHMARK_CATEGORIES = ("Regular", "QuickRotation")
-
-
-def benchmark(categories: tuple[str, ...] = BENCHMARK_CATEGORIES) -> BenchmarkReport:
+def benchmark(categories: tuple[str, ...] = NUS_CATEGORIES) -> BenchmarkReport:
     torch.manual_seed(0)
-    bench_clips, _, _ = splits()
-    bench_clips = [c for c in bench_clips if c.category in categories]
+    # the shipped IHN trained only on synthetic data and never saw NUS, so the entire dataset is
+    # held-out; benchmark on every available original clip, not the small split sample.
+    clips = [
+        c for c in nus_clips(per_category=None, benchmark_fraction=1.0) if c.category in categories
+    ]
     estimators = {
         "classical": ClassicalEstimator(),
         "ihn": LearnedEstimator(),  # bundled weights, the ones that ship
     }
-    report = run_benchmark(bench_clips, estimators)
+    report = run_benchmark(clips, estimators, max_frames=400)
     report.scope = {
         "categories": list(categories),
+        "clips": len(clips),
         "note": (
-            "subset run on the NUS Regular and QuickRotation categories; the remaining four "
-            "categories (Zooming, Parallax, Crowd, Running) are not included in this run"
+            "all available NUS original clips across the six scene categories; the shipped IHN "
+            "trained only on synthetic data, so the entire NUS set is held-out. Classical vs the "
+            "global IHN (mesh not included). Per clip the first 400 frames feed the quality "
+            "metrics and 100 the timing."
         ),
     }
     write_report(report, OUT)

@@ -99,12 +99,12 @@ def _download_with_retry(url: str, dest: Path, attempts: int = 8) -> None:
 
 
 def nus_clips(
-    root: Path | None = None, per_category: int = 4, benchmark_fraction: float = 0.5
+    root: Path | None = None, per_category: int | None = 4, benchmark_fraction: float = 0.5
 ) -> list[Clip]:
     """Collect clips per category and split them into disjoint benchmark / phaseb sets.
 
     The benchmark and Phase-B splits never share a clip, so reported numbers are not measured
-    on training footage.
+    on training footage. per_category=None takes every original clip in each category.
     """
     base = root or nus_root()
     clips: list[Clip] = []
@@ -119,7 +119,8 @@ def nus_clips(
             for p in cat_dir.iterdir()
             if p.suffix.lower() in {".avi", ".mp4", ".mov"} and "stb" not in p.stem.lower()
         )
-        files = files[:per_category]
+        if per_category is not None:
+            files = files[:per_category]
         n_bench = max(1, int(round(len(files) * benchmark_fraction)))
         for i, f in enumerate(files):
             split = "benchmark" if i < n_bench else "phaseb"

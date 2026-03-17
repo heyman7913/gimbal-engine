@@ -50,18 +50,26 @@ class BenchmarkReport:
 
 
 def time_estimator(
-    estimator: Estimator, gray_pairs: list[tuple[np.ndarray, np.ndarray]], warmup: int = 3
+    estimator: Estimator,
+    gray_pairs: list[tuple[np.ndarray, np.ndarray]],
+    warmup: int = 3,
+    max_pairs: int = 100,
 ) -> Timing:
-    """Measure per-call latency and batch throughput for one estimator over frame pairs."""
-    if gray_pairs:
-        h, w = gray_pairs[0][0].shape
+    """Measure per-call latency and batch throughput for one estimator over frame pairs.
+
+    Speed is content-independent at a fixed frame size, so timing samples at most max_pairs frames
+    rather than the whole clip, which keeps a large benchmark feasible.
+    """
+    pairs = gray_pairs[:max_pairs]
+    if pairs:
+        h, w = pairs[0][0].shape
         estimator.warmup(h, w)
-    for i in range(min(warmup, len(gray_pairs))):
-        estimator.estimate(*gray_pairs[i])
+    for i in range(min(warmup, len(pairs))):
+        estimator.estimate(*pairs[i])
     device_synchronize()
 
     latencies: list[float] = []
-    for a, b in gray_pairs:
+    for a, b in pairs:
         device_synchronize()
         t0 = time.perf_counter()
         estimator.estimate(a, b)
@@ -70,13 +78,13 @@ def time_estimator(
 
     device_synchronize()
     t0 = time.perf_counter()
-    for a, b in gray_pairs:
+    for a, b in pairs:
         estimator.estimate(a, b)
     device_synchronize()
     batch_s = time.perf_counter() - t0
 
     lat = np.asarray(latencies)
-    fps = len(gray_pairs) / batch_s if batch_s > 0 else 0.0
+    fps = len(pairs) / batch_s if batch_s > 0 else 0.0
     return Timing(
         p50_ms=float(np.percentile(lat, 50)),
         p95_ms=float(np.percentile(lat, 95)),
@@ -185,15 +193,22 @@ def run_benchmark(
     estimators: dict[str, Estimator],
     smoother: str = "kalman_rts",
     strength: float = 0.6,
+    max_frames: int | None = None,
     log: Callable[[str], None] = print,
 ) -> BenchmarkReport:
-    """Run every estimator on every clip; collect the triplet, timing, and the microbench."""
+    """Run every estimator on every clip; collect the triplet, timing, and the microbench.
+
+    max_frames caps each clip to its first N frames so a large benchmark stays bounded; the
+    metrics are aggregate over that segment.
+    """
     from ..pipeline import stabilize
     from ..video_io import read_video, to_gray
 
     report = BenchmarkReport(environment=environment_info())
     for clip in clips:
         frames, _ = read_video(clip.path)
+        if max_frames is not None:
+            frames = frames[:max_frames]
         grays = [to_gray(f) for f in frames]
         pairs = [(grays[i - 1], grays[i]) for i in range(1, len(grays))]
         for name, est in estimators.items():
