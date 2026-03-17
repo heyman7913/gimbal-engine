@@ -34,3 +34,30 @@ def test_unsupervised_training_step_runs():
     losses = train_unsupervised(model, pairs, cfg)
     assert len(losses) == 5
     assert all(math.isfinite(x) for x in losses)
+
+
+def test_phase_b_guard_reverts_a_degrading_run():
+    import copy
+
+    import torch
+    from gimbal.learned.model import IHN
+    from gimbal.learned.train import PhaseBConfig, phase_b_with_guard
+
+    torch.manual_seed(0)
+    model = IHN(size=64, iters=2).cuda()
+    pairs = torch.rand(8, 2, 64, 64)
+    before = copy.deepcopy(model.state_dict())
+
+    # held-out metric (higher is better) drops after fine-tuning, so the run must be rejected
+    calls = {"n": 0}
+
+    def degrading(_m: IHN) -> float:
+        calls["n"] += 1
+        return 1.0 if calls["n"] == 1 else 0.0
+
+    cfg = PhaseBConfig(steps=3, batch=4, log=lambda _s: None)
+    result = phase_b_with_guard(model, pairs, degrading, cfg)
+
+    assert not result["adopted"]
+    after = model.state_dict()
+    assert all(torch.equal(before[k], after[k]) for k in before)
