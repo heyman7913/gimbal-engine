@@ -79,7 +79,17 @@ __global__ void warp_kernel(
     for (int c = 0; c < ch; ++c) out[c] = 0;
     return;
   }
-  const double sx = X / Wd, sy = Y / Wd;
+  double sx = X / Wd, sy = Y / Wd;
+  // a near-singular stabilizing homography can map a pixel to a non-finite or astronomically
+  // distant source coordinate; reject non-finite and clamp the rest to a small margin so the
+  // integer neighbours below stay in representable range. Anything past the frame still samples
+  // to black through the per-neighbour bounds checks.
+  if (!isfinite(sx) || !isfinite(sy)) {
+    for (int c = 0; c < ch; ++c) out[c] = 0;
+    return;
+  }
+  sx = fmin(fmax(sx, -2.0), (double)(sw + 1));
+  sy = fmin(fmax(sy, -2.0), (double)(sh + 1));
   const int x0 = (int)floor(sx), y0 = (int)floor(sy);
   const double ax = sx - x0, ay = sy - y0;
   for (int c = 0; c < ch; ++c) {
