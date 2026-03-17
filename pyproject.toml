@@ -45,7 +45,7 @@ dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.11"]
 gimbal = "gimbal.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/heyman7913/cuda-motion-flow"
+Homepage = "https://github.com/heyman7913/gimbal-engine"
 
 [tool.setuptools]
 include-package-data = true
