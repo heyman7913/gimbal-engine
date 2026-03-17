@@ -22,22 +22,23 @@ memory, under load). Raw data: `optimization_log.{json,csv}`, `roofline.png`, `c
 
 ## Optimization log (forward, B32 C96 16x16 R4)
 
-| version | latency | vs v0 | bottleneck |
+| kernel | latency | vs naive | bottleneck |
 |---|---|---|---|
-| pytorch_reference | 2.53 ms | 0.04x | overhead: many small ops + temporaries |
-| **v0 naive** | **0.105 ms** | 1.0x | latency-bound: parallel + coalesced, but reaches ~22% of the copy roof |
-| v1 fa-reuse (k-tiling) | 0.77 ms | 0.14x | occupancy: 8192 threads vs v0's 663552, too few to hide latency |
-| v2 float4 (NHWC) | 0.35 ms | 0.30x | uncoalesced: NHWC strides neighbouring threads by C |
+| PyTorch baseline | 3.00 ms | 0.03x | overhead: many small ops + temporaries |
+| **Naive kernel** | **0.103 ms** | 1.0x | latency-bound: parallel + coalesced, but reaches ~23% of the copy roof |
+| Feature reuse (k-tiling) | 0.77 ms | 0.13x | occupancy: 8192 threads vs the naive 663552, too few to hide latency |
+| Float4 vectorized (NHWC) | 0.34 ms | 0.30x | uncoalesced: NHWC strides neighbouring threads by C |
 
-v0 is roughly an order of magnitude faster than the PyTorch reference (about 14x to 24x across
-runs; the reference fires dozens of small ops so its latency is variable, 24x this run). The more
-durable result is the v0-relative column: **the hand "optimizations" are slower than the naive
-kernel.** Arithmetic intensity is ~14.2 FLOP/byte, left of the roofline ridge (~93 FLOP/byte), so
-the op is memory-side, and even v0 reaches only ~22% of the 393 GB/s copy roof. At 16x16 the
-volume is tiny, so what matters is launching enough threads (v0's 663k) and keeping loads
-coalesced. v1 cuts redundant `fa` traffic but collapses to 8k threads and loses latency-hiding;
-v2's NHWC layout enables float4 but breaks warp coalescing. Reducing arithmetic or loads does not
-help a problem that is occupancy / latency bound and far from saturating memory.
+The naive kernel is roughly an order of magnitude faster than the PyTorch baseline (14x to 30x
+across runs; the baseline fires dozens of small ops so its latency is variable, 29x this run). The
+more durable result is the naive-relative column: **the hand "optimizations" are slower than the
+naive kernel.** Arithmetic intensity is ~14.2 FLOP/byte, left of the roofline ridge
+(~93 FLOP/byte), so the op is memory-side, and even the naive kernel reaches only ~23% of the
+393 GB/s copy roof. At 16x16 the volume is tiny, so what matters is launching enough threads (the
+naive kernel's 663k) and keeping loads coalesced. Feature reuse cuts redundant `fa` traffic but
+collapses to 8k threads and loses latency-hiding; the float4 path's NHWC layout enables wide loads
+but breaks warp coalescing. Reducing arithmetic or loads does not help a problem that is occupancy
+or latency bound and far from saturating memory.
 
 ## End-to-end: the real bottleneck is launch overhead (CUDA graphs)
 

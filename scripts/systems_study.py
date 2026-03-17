@@ -15,7 +15,6 @@ import csv
 import json
 from pathlib import Path
 
-import gimbal._cuda as ext
 import numpy as np
 import torch
 from gimbal.learned.correlation import local_correlation_reference
@@ -101,6 +100,8 @@ def clocks_under_load() -> dict[str, str]:
 
 
 def main() -> None:
+    import gimbal._cuda as ext  # after torch is imported, so its libc10 is already loaded
+
     torch.manual_seed(0)
     torch.backends.cudnn.deterministic = True
     fa = torch.randn(B, C, H, W, device="cuda")
@@ -115,10 +116,10 @@ def main() -> None:
     arithmetic_intensity = flops / essential_bytes
 
     versions = {
-        "pytorch_reference": lambda: local_correlation_reference(fa, fb, R),
-        "v0_naive": lambda: ext.correlation_forward(fa, fb, R),
-        "v1_fa_reuse": lambda: ext.correlation_forward_v1(fa, fb, R),
-        "v2_float4_nhwc": lambda: ext.correlation_forward_v2(fan, fbn, R),
+        "PyTorch baseline": lambda: local_correlation_reference(fa, fb, R),
+        "Naive kernel": lambda: ext.correlation_forward(fa, fb, R),
+        "Feature reuse": lambda: ext.correlation_forward_v1(fa, fb, R),
+        "Float4 vectorized": lambda: ext.correlation_forward_v2(fan, fbn, R),
     }
 
     ref = ext.correlation_forward(fa, fb, R)
@@ -126,16 +127,16 @@ def main() -> None:
     compute_roof = theoretical_fp32_tflops()
 
     rows = []
-    t_v0 = None
+    t_naive = None
     t_ref = None
     for name, fn in versions.items():
         out = fn()
         max_err = float((out - ref).abs().max())
         ms = cuda_time_ms(fn)
         gflops = flops / (ms * 1e-3) / 1e9
-        if name == "v0_naive":
-            t_v0 = ms
-        if name == "pytorch_reference":
+        if name == "Naive kernel":
+            t_naive = ms
+        if name == "PyTorch baseline":
             t_ref = ms
         rows.append(
             {
@@ -143,28 +144,34 @@ def main() -> None:
                 "latency_ms": round(ms, 4),
                 "achieved_gflops": round(gflops, 1),
                 "pct_of_memory_roof": round(100 * gflops / (mem_roof * arithmetic_intensity), 2),
-                "max_err_vs_v0": max_err,
+                "max_err_vs_naive": max_err,
             }
         )
 
     # thread count is the load-bearing fact here: at 16x16 the win is parallelism, not fewer ops
     threads = {
-        "pytorch_reference": None,
-        "v0_naive": B * K * H * W,
-        "v1_fa_reuse": B * H * W,
-        "v2_float4_nhwc": B * K * H * W,
+        "PyTorch baseline": None,
+        "Naive kernel": B * K * H * W,
+        "Feature reuse": B * H * W,
+        "Float4 vectorized": B * K * H * W,
     }
     bottleneck = {
-        "pytorch_reference": "overhead-bound: dozens of small ops plus temporaries per call",
-        "v0_naive": "latency-bound: fully parallel and coalesced, but at 16x16 it reaches only a "
-        "fifth of the copy roof, the problem is too small to saturate memory at full clock",
-        "v1_fa_reuse": f"occupancy-bound: only {B * H * W} threads vs v0's {B * K * H * W}, "
-        "too few to hide latency, so saving fa loads does not pay off",
-        "v2_float4_nhwc": "uncoalesced: NHWC makes neighbouring threads stride by C, "
-        "breaking warp coalescing despite the float4 loads",
+        "PyTorch baseline": "overhead-bound: dozens of small ops plus temporaries per call",
+        "Naive kernel": (
+            "latency-bound: fully parallel and coalesced, but at 16x16 it reaches only a fifth "
+            "of the copy roof, the problem is too small to saturate memory at full clock"
+        ),
+        "Feature reuse": (
+            f"occupancy-bound: only {B * H * W} threads vs the naive kernel's {B * K * H * W}, "
+            "too few to hide latency, so saving fa loads does not pay off"
+        ),
+        "Float4 vectorized": (
+            "uncoalesced: NHWC makes neighbouring threads stride by C, "
+            "breaking warp coalescing despite the float4 loads"
+        ),
     }
     for r in rows:
-        r["speedup_vs_v0"] = round(t_v0 / r["latency_ms"], 2) if t_v0 else None
+        r["speedup_vs_naive"] = round(t_naive / r["latency_ms"], 2) if t_naive else None
         r["speedup_vs_reference"] = round(t_ref / r["latency_ms"], 2) if t_ref else None
         r["threads_launched"] = threads[r["version"]]
         r["bottleneck"] = bottleneck[r["version"]]

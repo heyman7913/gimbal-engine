@@ -1,5 +1,5 @@
-version,latency_ms,achieved_gflops,pct_of_memory_roof,max_err_vs_v0,speedup_vs_v0,speedup_vs_reference,threads_launched,bottleneck
-pytorch_reference,2.5261,50.4,0.9,1.9073486328125e-06,0.04,1.0,,overhead-bound: dozens of small ops plus temporaries per call
-v0_naive,0.1046,1218.3,21.76,0.0,1.0,24.15,663552,"latency-bound: fully parallel and coalesced, but at 16x16 it reaches only a fifth of the copy roof, the problem is too small to saturate memory at full clock"
-v1_fa_reuse,0.7667,166.2,2.97,0.0,0.14,3.29,8192,"occupancy-bound: only 8192 threads vs v0's 663552, too few to hide latency, so saving fa loads does not pay off"
-v2_float4_nhwc,0.346,368.2,6.58,2.384185791015625e-06,0.3,7.3,663552,"uncoalesced: NHWC makes neighbouring threads stride by C, breaking warp coalescing despite the float4 loads"
+version,latency_ms,achieved_gflops,pct_of_memory_roof,max_err_vs_naive,speedup_vs_naive,speedup_vs_reference,threads_launched,bottleneck
+PyTorch baseline,3.0001,42.5,0.79,1.9073486328125e-06,0.03,1.0,,overhead-bound: dozens of small ops plus temporaries per call
+Naive kernel,0.1034,1232.3,22.95,0.0,1.0,29.01,663552,"latency-bound: fully parallel and coalesced, but at 16x16 it reaches only a fifth of the copy roof, the problem is too small to saturate memory at full clock"
+Feature reuse,0.7677,165.9,3.09,0.0,0.13,3.91,8192,"occupancy-bound: only 8192 threads vs the naive kernel's 663552, too few to hide latency, so saving fa loads does not pay off"
+Float4 vectorized,0.3414,373.2,6.95,2.384185791015625e-06,0.3,8.79,663552,"uncoalesced: NHWC makes neighbouring threads stride by C, breaking warp coalescing despite the float4 loads"
