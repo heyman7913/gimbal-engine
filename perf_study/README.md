@@ -40,6 +40,8 @@ collapses to 8k threads and loses latency-hiding; the float4 path's NHWC layout 
 but breaks warp coalescing. Reducing arithmetic or loads does not help a problem that is occupancy
 or latency bound and far from saturating memory.
 
+![Fused correlation roofline](roofline.png)
+
 ## End-to-end: the real bottleneck is launch overhead (CUDA graphs)
 
 Full IHN inference profiled with CUPTI: **2179 kernel launches per call, of which only ~18% of
