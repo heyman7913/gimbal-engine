@@ -1,8 +1,10 @@
-"""Render the gimbal CLI output to an SVG terminal capture for the README.
+"""Render the gimbal CLI output to a terminal capture for the README.
 
 Uses the real rich components from the CLI and real measured numbers from the benchmark, so the
 image matches what a stabilize run prints: the command, the device panel, the progress, and the
-result triplet. Writes media/cli.svg.
+result triplet. Writes media/cli.svg, which is then rendered to a PNG for a font stable image:
+
+    rsvg-convert media/cli.svg -o media/cli.png
 """
 
 from __future__ import annotations
@@ -34,13 +36,13 @@ def main() -> None:
     fps = cap.get(cv2.CAP_PROP_FPS)
     cap.release()
 
-    console = Console(record=True, width=82)
+    console = Console(record=True, width=82, highlight=False)
     console.print(
-        "[bold #2ec4b6]$[/] gimbal stabilize quickrotation.avi stabilized.mp4 "
-        "[cyan]--estimator[/] ihn"
+        "[bold #2ec4b6]$[/] [white]gimbal stabilize quickrotation.avi stabilized.mp4 "
+        "--estimator ihn[/]"
     )
     console.print()
-    console.print("[bold cyan]gimbal[/]  [dim]classical vs learned camera-motion, head to head[/]")
+    console.print("[bold cyan]gimbal[/]   [dim]classical vs learned camera-motion, head to head[/]")
     console.print(
         Panel(
             f"[bold]{env['gpu']}[/]\n"
@@ -52,7 +54,7 @@ def main() -> None:
             expand=False,
         )
     )
-    console.print(f"loaded [bold]{n_frames}[/] frames @ {fps:.1f} fps, estimator=[bold]ihn[/]")
+    console.print(f"loaded {n_frames} frames @ {fps:.1f} fps, estimator ihn")
 
     progress = Progress(
         TextColumn("[progress.description]{task.description}"),

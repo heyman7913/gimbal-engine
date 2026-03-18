@@ -14,7 +14,7 @@ gimbal_engine stabilizes shaky video on the GPU. Its real subject is a head to h
 >
 > Building the compiled CUDA extension needs an NVIDIA GPU and a CUDA toolkit. The trained weights ship inside the package, so a successful install can stabilize immediately with no extra download. If you do not have a local toolchain, the Docker path under [Build and install](#build-and-install) builds everything.
 
-<p align="center"><img src="media/cli.svg" alt="The gimbal CLI on a stabilize run" width="820"></p>
+<p align="center"><img src="media/cli.png" alt="The gimbal CLI on a stabilize run" width="820"></p>
 
 ## Stabilization, side by side
 
