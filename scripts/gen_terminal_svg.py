@@ -1,7 +1,8 @@
 """Render the gimbal CLI output to an SVG terminal capture for the README.
 
 Uses the real rich components from the CLI and real measured numbers from the benchmark, so the
-image matches what a stabilize run prints. Writes media/cli.svg.
+image matches what a stabilize run prints: the command, the device panel, the progress, and the
+result triplet. Writes media/cli.svg.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from pathlib import Path
 import cv2
 from rich.console import Console
 from rich.panel import Panel
+from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 
 CLIP = Path("data/nus/QuickRotation/0.avi")
@@ -32,25 +34,40 @@ def main() -> None:
     fps = cap.get(cv2.CAP_PROP_FPS)
     cap.release()
 
-    console = Console(record=True, width=84)
-    console.print("[bold cyan]gimbal[/]  [dim]classical vs learned camera-motion, head to head[/]")
-    panel = Panel(
-        f"[bold]{env['gpu']}[/]\n"
-        f"compute capability : {env['compute_capability']}\n"
-        f"torch              : {env['torch']}\n"
-        f"cupy               : {env['cupy']}",
-        title="device",
-        border_style="cyan",
-        expand=False,
-    )
-    console.print(panel)
+    console = Console(record=True, width=82)
     console.print(
-        f"loaded [bold]{n_frames}[/] frames @ {fps:.1f} fps, estimator=[bold]ihn[/]"
+        "[bold #2ec4b6]$[/] gimbal stabilize quickrotation.avi stabilized.mp4 "
+        "[cyan]--estimator[/] ihn"
     )
+    console.print()
+    console.print("[bold cyan]gimbal[/]  [dim]classical vs learned camera-motion, head to head[/]")
+    console.print(
+        Panel(
+            f"[bold]{env['gpu']}[/]\n"
+            f"compute capability : {env['compute_capability']}\n"
+            f"torch              : {env['torch']}\n"
+            f"cupy               : {env['cupy']}",
+            title="device",
+            border_style="cyan",
+            expand=False,
+        )
+    )
+    console.print(f"loaded [bold]{n_frames}[/] frames @ {fps:.1f} fps, estimator=[bold]ihn[/]")
+
+    progress = Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=26, complete_style="#2ec4b6", finished_style="#2ec4b6"),
+        TextColumn("{task.completed}/{task.total}"),
+        console=console,
+    )
+    progress.add_task("estimate motion", total=n_frames - 1, completed=n_frames - 1)
+    progress.add_task("warp and crop", total=n_frames, completed=n_frames)
+    console.print(progress.get_renderable())
+
     table = Table(title="ihn · kalman_rts", border_style="cyan", show_header=False)
     table.add_row(
         "stability (in -> out)",
-        f"{row['stability_input']:.3f} -> {row['stability_score']:.3f}",
+        f"{row['stability_input']:.3f} -> [bold #2ec4b6]{row['stability_score']:.3f}[/]",
     )
     table.add_row("cropping ratio", f"{row['cropping_ratio']:.3f}")
     table.add_row("distortion value", f"{row['distortion_value']:.3f}")
