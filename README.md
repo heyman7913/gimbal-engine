@@ -1,10 +1,10 @@
 # gimbal_engine
 
-<p align="center"><em>GPU video stabilization that runs a custom CUDA pipeline and a trained iterative homography network against each other behind one interface.</em></p>
+<p align="center"><em>GPU video stabilization package that runs a custom fused CUDA autograd kernel and a trained iterative homography network to improve stability in videos.</em></p>
 
 gimbal_engine stabilizes shaky video on the GPU. Its real subject is a head to head comparison of two interchangeable camera motion estimators: a classical pipeline written in CUDA (pyramidal Lucas-Kanade tracking with RANSAC homography fitting) and an iterative homography network (IHN) trained from scratch. Both sit behind one shared `Estimator` interface and feed the same back end (trajectory smoothing, GPU warping, auto crop, and the standard stabilization metrics), so they can be swapped and measured on identical footage.
 
-> **The unusual part:** custom CUDA kernels, including a fused correlation operator with its own backward pass, sitting next to a deep model trained end to end, both built on the same differentiable geometry (a Tensor-DLT).
+> Custom CUDA kernels, including a fused correlation operator with its own backward pass, run alongside a deep model trained end to end, both built on the same differentiable geometry (a Tensor-DLT).
 
 > **Install**
 >
