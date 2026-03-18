@@ -1,8 +1,10 @@
 # gimbal_engine
 
-GPU video stabilization that runs a hand written CUDA pipeline and a trained iterative homography network against each other behind one interface.
+<p align="center"><em>GPU video stabilization that runs a custom CUDA pipeline and a trained iterative homography network against each other behind one interface.</em></p>
 
-gimbal_engine stabilizes shaky video on the GPU. Its real subject is a head to head comparison of two interchangeable camera motion estimators: a classical pipeline written in CUDA (pyramidal Lucas-Kanade tracking with RANSAC homography fitting) and an iterative homography network (IHN) trained from scratch. Both sit behind one shared `Estimator` interface and feed the same back end (trajectory smoothing, GPU warping, auto crop, and the standard stabilization metrics), so they can be swapped and measured on identical footage. The combination is unusual in one project: hand written CUDA kernels, including a fused correlation operator with a custom backward pass, alongside a deep model trained end to end, with the geometry (a differentiable Tensor-DLT) shared between them.
+gimbal_engine stabilizes shaky video on the GPU. Its real subject is a head to head comparison of two interchangeable camera motion estimators: a classical pipeline written in CUDA (pyramidal Lucas-Kanade tracking with RANSAC homography fitting) and an iterative homography network (IHN) trained from scratch. Both sit behind one shared `Estimator` interface and feed the same back end (trajectory smoothing, GPU warping, auto crop, and the standard stabilization metrics), so they can be swapped and measured on identical footage.
+
+> **The unusual part:** custom CUDA kernels, including a fused correlation operator with its own backward pass, sitting next to a deep model trained end to end, both built on the same differentiable geometry (a Tensor-DLT).
 
 > **Install**
 >
@@ -12,30 +14,40 @@ gimbal_engine stabilizes shaky video on the GPU. Its real subject is a head to h
 >
 > Building the compiled CUDA extension needs an NVIDIA GPU and a CUDA toolkit. The trained weights ship inside the package, so a successful install can stabilize immediately with no extra download. If you do not have a local toolchain, the Docker path under [Build and install](#build-and-install) builds everything.
 
+<p align="center"><img src="media/cli.svg" alt="The gimbal CLI on a stabilize run" width="820"></p>
+
 ## Stabilization, side by side
 
-![Shaky input, gimbal IHN, and classical stabilization on a NUS QuickRotation clip](media/comparison_quickrotation.gif)
-
-QuickRotation/0.avi from the NUS benchmark. Left: the shaky input. Middle: the gimbal IHN result. Right: the classical CUDA result. On this clip the IHN reaches a stability score of 0.895, against 0.748 for the classical estimator, which falls back to a distorted full frame correction here (distortion value 0.058 against the IHN's 0.941).
-
-![The gimbal CLI after a stabilize run](media/cli.svg)
-
-The `gimbal` command on a real run: the device panel, the loaded clip, and the result triplet.
+<div align="center">
+<table>
+<tr>
+<td align="center"><img src="media/shaky.gif" width="250" alt="shaky input"></td>
+<td align="center"><img src="media/ihn.gif" width="250" alt="gimbal IHN result"></td>
+<td align="center"><img src="media/classical.gif" width="250" alt="classical result"></td>
+</tr>
+<tr>
+<td align="center"><b>Shaky input</b></td>
+<td align="center"><b>gimbal IHN</b><br>stability 0.895</td>
+<td align="center"><b>Classical</b><br>stability 0.748</td>
+</tr>
+</table>
+<sub>NUS QuickRotation/0.avi. The IHN holds the frame steady where the classical fit falls back to a distorted full frame correction (distortion value 0.058 against the IHN's 0.941).</sub>
+</div>
 
 [Highlights](#highlights) · [What is inside](#what-is-inside) · [Architecture](#architecture) · [Results](#results) · [Correctness](#correctness) · [Build and install](#build-and-install)
 
 ## Highlights
 
-- A fused local correlation CUDA operator with a hand written forward and backward pass. Against the PyTorch reference it is 26.3x faster and uses 1.72x less memory (forward and backward, RTX 5070 Ti laptop).
+- A fused local correlation CUDA operator with its own forward and backward pass. Against the PyTorch reference it is 26.3x faster and uses 1.72x less memory (forward and backward, RTX 5070 Ti laptop).
 - The trained IHN reaches a sub pixel mean average corner error of 0.863 px on held out synthetic pairs, against 6.489 px for a single shot regression baseline. The iterative refinement is the difference.
 - A mesh (multi homography) model that fits a grid of local homographies and reduces exactly to the single global homography at a 1x1 grid. On synthetic parallax it lowers corner error against the global model by 6.5 px (see [the mesh study](mesh_study/README.md)).
-- One leak free `Estimator` interface. The classical pipeline, the global IHN, and the mesh model all return the same `MotionField`, so the pipeline never knows which one it is running.
+- One `Estimator` interface for all three. The classical pipeline, the global IHN, and the mesh model return the same `MotionField`, so the pipeline never knows which one it is running.
 - Field standard evaluation: the NUS dataset, reported as the cropping ratio, distortion value, and stability score triplet, plus CUDA event timing.
 - The whole inference loop captured into a CUDA graph, which removes the launch overhead that dominates at this size and gives an 11.4x end to end speedup.
 
 ## What is inside
 
-Two estimators, one back end. The interesting code is the comparison between them and the geometry they share.
+Two estimators, one back end. The core of the project is the comparison between them and the geometry they share.
 
 | Component | What it is |
 |---|---|
@@ -47,7 +59,7 @@ Two estimators, one back end. The interesting code is the comparison between the
 | Shared back end | Trajectory smoothing, GPU warp, auto crop, and the stabilization metric triplet |
 | Smoothers | Gaussian, Kalman RTS, and L1-TV camera path smoothing |
 
-The classical and learned estimators are genuinely interchangeable because they agree on one contract: take two consecutive grayscale frames, return a `MotionField` that maps frame A coordinates to frame B coordinates. The geometry that turns four point offsets into a homography (a differentiable Tensor-DLT solved on the GPU) is shared by the learned model and the classical RANSAC fit.
+The classical and learned estimators are interchangeable because they agree on one contract: take two consecutive grayscale frames, return a `MotionField` that maps frame A coordinates to frame B coordinates. The geometry that turns four point offsets into a homography (a differentiable Tensor-DLT solved on the GPU) is shared by the learned model and the classical RANSAC fit.
 
 ## Architecture
 
@@ -88,9 +100,9 @@ Classical against the learned IHN across all six NUS scene categories (144 clips
 
 The IHN wins the hard rotation case and runs about 1.6x faster everywhere. The classical pipeline is steadier on large zoom and parallax, which are the motions furthest from the IHN's synthetic training distribution.
 
-![NUS benchmark dashboard](benchmark/dashboard.png)
+<p align="center"><img src="benchmark/dashboard.png" alt="NUS benchmark dashboard" width="900"></p>
 
-![Quality against speed, per category](benchmark/quality_vs_speed.png)
+<p align="center"><img src="benchmark/quality_vs_speed.png" alt="Quality against speed, per category" width="700"></p>
 
 ### Training ablation
 
@@ -114,7 +126,7 @@ The cost volume operator and the inference loop, measured on the same GPU. The f
 | fp16 accuracy cost (MACE) | +0.002 px |
 | bf16 accuracy cost (MACE) | +0.029 px |
 
-![Fused correlation roofline](perf_study/roofline.png)
+<p align="center"><img src="perf_study/roofline.png" alt="Fused correlation roofline" width="700"></p>
 
 The roofline shows why the simplest kernel wins: at a 16x16 cost volume the operation is latency and occupancy bound, not compute bound, so launching enough threads with coalesced loads beats reducing arithmetic.
 
