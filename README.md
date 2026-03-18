@@ -4,7 +4,7 @@
 
 gimbal_engine stabilizes shaky video on the GPU. Its real subject is a head to head comparison of two interchangeable camera motion estimators: a classical pipeline written in CUDA (pyramidal Lucas-Kanade tracking with RANSAC homography fitting) and an iterative homography network (IHN) trained from scratch. Both sit behind one shared `Estimator` interface and feed the same back end (trajectory smoothing, GPU warping, auto crop, and the standard stabilization metrics), so they can be swapped and measured on identical footage.
 
-> Custom CUDA kernels, including a fused correlation operator with its own backward pass, run alongside a deep model trained end to end, both built on the same differentiable geometry (a Tensor-DLT).
+> Custom CUDA kernels, including a fused correlation operator with its own backward pass, run alongside a deep model trained end to end, both built on the same geometry, a tensor DLT.
 
 > **Install**
 >
@@ -18,21 +18,47 @@ gimbal_engine stabilizes shaky video on the GPU. Its real subject is a head to h
 
 ## Stabilization, side by side
 
+Three NUS clips, across rotation, running, and crowd scenes. Each row is one clip: the shaky input, the gimbal IHN result, and the classical CUDA result, with the stability score under each.
+
 <div align="center">
 <table>
 <tr>
-<td align="center"><img src="media/shaky.gif" width="250" alt="shaky input"></td>
-<td align="center"><img src="media/ihn.gif" width="250" alt="gimbal IHN result"></td>
-<td align="center"><img src="media/classical.gif" width="250" alt="classical result"></td>
+<td align="center"><img src="media/rotation_shaky.gif" width="240" alt="shaky input"></td>
+<td align="center"><img src="media/rotation_ihn.gif" width="240" alt="gimbal IHN result"></td>
+<td align="center"><img src="media/rotation_classical.gif" width="240" alt="classical result"></td>
 </tr>
 <tr>
 <td align="center"><b>Shaky input</b></td>
-<td align="center"><b>gimbal IHN</b><br>stability 0.895</td>
-<td align="center"><b>Classical</b><br>stability 0.748</td>
+<td align="center"><b>gimbal IHN</b><br>stability 0.928</td>
+<td align="center"><b>Classical</b><br>stability 0.264</td>
 </tr>
+<tr><td colspan="3" align="center"><sub>QuickRotation/19.avi</sub></td></tr>
+<tr>
+<td align="center"><img src="media/running_shaky.gif" width="240" alt="shaky input"></td>
+<td align="center"><img src="media/running_ihn.gif" width="240" alt="gimbal IHN result"></td>
+<td align="center"><img src="media/running_classical.gif" width="240" alt="classical result"></td>
+</tr>
+<tr>
+<td align="center"><b>Shaky input</b></td>
+<td align="center"><b>gimbal IHN</b><br>stability 0.973</td>
+<td align="center"><b>Classical</b><br>stability 0.631</td>
+</tr>
+<tr><td colspan="3" align="center"><sub>Running/1.avi</sub></td></tr>
+<tr>
+<td align="center"><img src="media/crowd_shaky.gif" width="240" alt="shaky input"></td>
+<td align="center"><img src="media/crowd_ihn.gif" width="240" alt="gimbal IHN result"></td>
+<td align="center"><img src="media/crowd_classical.gif" width="240" alt="classical result"></td>
+</tr>
+<tr>
+<td align="center"><b>Shaky input</b></td>
+<td align="center"><b>gimbal IHN</b><br>stability 0.908</td>
+<td align="center"><b>Classical</b><br>stability 0.495</td>
+</tr>
+<tr><td colspan="3" align="center"><sub>Crowd/14.avi</sub></td></tr>
 </table>
-<sub>NUS QuickRotation/0.avi. The IHN holds the frame steady where the classical fit falls back to a distorted full frame correction (distortion value 0.058 against the IHN's 0.941).</sub>
 </div>
+
+These are clips where the IHN is strongest. On large zoom and parallax the classical pipeline is steadier, and the full per category numbers, wins and losses, are in [Results](#results).
 
 [Highlights](#highlights) · [What is inside](#what-is-inside) · [Architecture](#architecture) · [Results](#results) · [Correctness](#correctness) · [Build and install](#build-and-install)
 
@@ -78,7 +104,11 @@ flowchart LR
   W --> O[Stabilized clip plus metrics]
 ```
 
+The classical estimator runs the parallel path entirely in CUDA: Shi-Tomasi corner detection, pyramidal Lucas-Kanade tracking of those corners across the frame pair, and a RANSAC homography fit over the surviving matches, with a degenerate fit falling back to identity rather than a bad warp.
+
 The IHN follows the iterative homography idea. A shared encoder turns both frames into feature maps. At each of six iterations the model builds a local correlation cost volume between the current warped features and the target, predicts an update to four corner offsets, and turns those offsets into a homography with the Tensor-DLT. The cost volume is the hot path, which is why it has a dedicated fused CUDA operator. The mesh model replaces the single set of four corners with a grid of cells, each with its own local homography, blended into a smooth sampling field; with a 1x1 grid it is identical to the global IHN.
+
+Both paths produce a homography per frame pair. The shared back end turns that sequence into a stabilized clip: it accumulates the per frame motion into a camera path, smooths the path (Gaussian, Kalman RTS, or L1-TV), warps each frame by the difference between the original and smoothed path on the GPU, and auto crops to the largest rectangle that stays inside every warped frame.
 
 ## Results
 
