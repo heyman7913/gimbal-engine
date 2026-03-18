@@ -5,7 +5,7 @@ the project's Docker image, at full clocks (the GPU boosts to P0, 1612 MHz SM / 
 memory, under load). Raw data: `optimization_log.{json,csv}`, `roofline.png`, `cuda_graph.json`,
 `precision.json`.
 
-## Profiling environment (honest limitations)
+## Profiling environment
 
 - **Nsight Compute counters are unavailable here.** `ncu` returns `ERR_NVGPUCTRPERM` even with
   `--privileged`; on WSL2 with a consumer GeForce the GPU performance counters are not exposed
@@ -52,11 +52,10 @@ Capturing the whole `predict` into a CUDA graph required a graph-safe DLT solve,
 elimination on the SPD ridge system (matches cuSOLVER to 1e-4) makes the loop capturable.
 
 - eager: **41.2 ms/call**
-- graph replay: **3.61 ms/call** -> **11.4x end-to-end speedup**
-- graph vs eager max error: **4e-5** (numerically equivalent; covered by a test)
+- graph replay: **3.61 ms/call**, an **11.4x end to end speedup**
+- graph vs eager max error: **4e-5** (numerically equivalent, covered by a test)
 
-This is the load-bearing finding: at this size you do not chase the kernel, you remove the launch
-overhead.
+At this size the speedup comes from removing launch overhead, not from optimizing the kernel.
 
 ## Precision (fp16 / bf16 / fp8)
 
@@ -67,9 +66,8 @@ overhead.
 | bf16 | 0.892 px | +0.029 | 2.88 ms |
 
 fp16 is essentially free on accuracy (correlation relative error 7e-4) but gives **no throughput
-gain** here; if anything the reference correlation is slower in fp16/bf16, because the op is
-latency / memory bound rather than compute bound, so halving the data width buys nothing it can
-use. bf16 costs a small amount of MACE. fp8 (`torch.float8_e4m3fn` + `_scaled_mm`) is available but
-the 16x16 cost volume is a tiny per-pair dot product with no GEMM to amortise, so it would be
-marginal and was not pursued. The senior point is knowing the op is small and bound by something
-other than FLOPs, not manufacturing a tensor-core win.
+gain** here. If anything the reference correlation is slower in fp16 and bf16, because the op is
+latency and memory bound rather than compute bound, so halving the data width buys nothing it can
+use. bf16 costs a small amount of MACE. fp8 (`torch.float8_e4m3fn` with `_scaled_mm`) is available
+but the 16x16 cost volume is a tiny per pair dot product with no GEMM to amortise, so a tensor core
+path would be marginal and was not pursued.
