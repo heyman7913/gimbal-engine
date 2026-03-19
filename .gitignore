@@ -43,3 +43,6 @@ data/
 
 # run logs
 *.log
+
+# generated terminal capture (intermediate; the tracked image is media/cli.png)
+media/cli.svg
