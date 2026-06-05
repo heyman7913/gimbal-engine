@@ -154,12 +154,17 @@ Iterative refinement is roughly 7.5x more accurate than predicting the homograph
 
 The cost volume operator and the inference loop, measured on the same GPU. The full study, including the roofline and the optimization log, is in [perf_study](perf_study/README.md).
 
-| Measurement | Result |
-|---|---|
-| Fused correlation against the PyTorch reference | **26.3x faster, 1.72x less memory** |
-| CUDA graph replay against eager inference | **11.4x faster** (41.2 ms to 3.61 ms per call) |
-| fp16 accuracy cost (MACE) | +0.002 px |
-| bf16 accuracy cost (MACE) | +0.029 px |
+<div align="center">
+
+<table>
+<tr><th>Measurement</th><th>Result</th></tr>
+<tr><td>Fused correlation against the PyTorch reference</td><td><b>26.3x faster, 1.72x less memory</b></td></tr>
+<tr><td>CUDA graph replay against eager inference</td><td><b>11.4x faster</b> (41.2 ms to 3.61 ms per call)</td></tr>
+<tr><td>fp16 accuracy cost (MACE)</td><td>+0.002 px</td></tr>
+<tr><td>bf16 accuracy cost (MACE)</td><td>+0.029 px</td></tr>
+</table>
+
+</div>
 
 <p align="center"><img src="perf_study/roofline.png" alt="Fused correlation roofline" width="700"></p>
 
