@@ -1,10 +1,8 @@
 # gimbal-engine
 
-<p align="center"><em>GPU video stabilization package that runs a custom fused CUDA autograd kernel and a trained iterative homography network to improve stability in videos.</em></p>
+<p align="center"><em>GPU video stabilization with two interchangeable camera motion estimators, a custom CUDA pipeline and a learned homography network, benchmarked head to head.</em></p>
 
-gimbal_engine stabilizes shaky video on the GPU. Its real subject is a head to head comparison of two interchangeable camera motion estimators: a classical pipeline written in CUDA (pyramidal Lucas-Kanade tracking with RANSAC homography fitting) and an iterative homography network (IHN) trained from scratch. Both sit behind one shared `Estimator` interface and feed the same back end (trajectory smoothing, GPU warping, auto crop, and the standard stabilization metrics), so they can be swapped and measured on identical footage.
-
-> Custom CUDA kernels, including a fused correlation operator with its own backward pass, run alongside a deep model trained end to end, both built on the same geometry, a tensor DLT.
+<p align="center"><img src="media/cli.png" alt="The gimbal CLI on a stabilize run" width="820"></p>
 
 > **Install**
 >
@@ -14,7 +12,7 @@ gimbal_engine stabilizes shaky video on the GPU. Its real subject is a head to h
 >
 > Building the compiled CUDA extension needs an NVIDIA GPU and a CUDA toolkit. The trained weights ship inside the package, so a successful install can stabilize immediately with no extra download. If you do not have a local toolchain, the Docker path under [Build and install](#build-and-install) builds everything.
 
-<p align="center"><img src="media/cli.png" alt="The gimbal CLI on a stabilize run" width="820"></p>
+Gimbal Engine stabilizes shaky video on the GPU. Its real subject is a head to head comparison of two interchangeable camera motion estimators: a classical pipeline written in CUDA (pyramidal Lucas-Kanade tracking with RANSAC homography fitting) and an iterative homography network (IHN) trained from scratch. Both sit behind one shared `Estimator` interface and feed the same back end (trajectory smoothing, GPU warping, auto crop, and the standard stabilization metrics), so they can be swapped and measured on identical footage. The two share more than that interface: each turns its four corner estimates into a homography through the same differentiable Tensor-DLT, solved on the GPU.
 
 ## Stabilization, side by side
 
@@ -85,7 +83,7 @@ Two estimators, one back end. The core of the project is the comparison between 
 | Shared back end | Trajectory smoothing, GPU warp, auto crop, and the stabilization metric triplet |
 | Smoothers | Gaussian, Kalman RTS, and L1-TV camera path smoothing |
 
-The classical and learned estimators are interchangeable because they agree on one contract: take two consecutive grayscale frames, return a `MotionField` that maps frame A coordinates to frame B coordinates. The geometry that turns four point offsets into a homography (a differentiable Tensor-DLT solved on the GPU) is shared by the learned model and the classical RANSAC fit.
+The classical and learned estimators are interchangeable because they agree on one contract: take two consecutive grayscale frames, return a `MotionField` that maps frame A coordinates to frame B coordinates. Everything downstream, the smoothing, the warp, the metrics, sees only that result and never the model that produced it.
 
 ## Architecture
 
@@ -143,10 +141,13 @@ The IHN wins the hard rotation case and runs about 1.6x faster everywhere. The c
 
 Mean average corner error (MACE) on held out synthetic COCO pairs, lower is better. The iterative model and the single shot regression baseline use the same data and encoder.
 
-| Model | Best MACE |
-|---|---|
-| **IHN (iterative, 6 steps)** | **0.863 px** |
-| Regression baseline (single shot) | 6.489 px |
+<div align="center">
+<table>
+<tr><th>Model</th><th>Best MACE</th></tr>
+<tr><td><b>IHN (iterative, 6 steps)</b></td><td><b>0.863 px</b></td></tr>
+<tr><td>Regression baseline (single shot)</td><td>6.489 px</td></tr>
+</table>
+</div>
 
 Iterative refinement is roughly 7.5x more accurate than predicting the homography in one shot, and it lands at sub pixel error.
 
