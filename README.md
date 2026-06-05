@@ -1,4 +1,4 @@
-# gimbal_engine
+# gimbal-engine
 
 <p align="center"><em>GPU video stabilization package that runs a custom fused CUDA autograd kernel and a trained iterative homography network to improve stability in videos.</em></p>
 
@@ -118,15 +118,20 @@ All numbers below are measured on an RTX 5070 Ti laptop GPU (Blackwell, sm_120),
 
 Classical against the learned IHN across all six NUS scene categories (144 clips, the shipped IHN trained only on synthetic data so the entire NUS set is held out). Higher stability is better; the throughput column is the per frame rate.
 
-| Category | Classical stability | IHN stability | Classical fps | IHN fps |
-|---|---|---|---|---|
-| Regular | **0.886** | 0.864 | 16.5 | **27.8** |
-| QuickRotation | 0.862 | **0.897** | 16.3 | **27.2** |
-| Zooming | **0.879** | 0.766 | 16.9 | **25.2** |
-| Parallax | **0.877** | 0.812 | 16.3 | **25.6** |
-| Crowd | **0.848** | 0.833 | 16.7 | **24.9** |
-| Running | 0.848 | **0.852** | 16.3 | **26.7** |
-| Mean | **0.867** | 0.837 | 16.5 | **26.3** |
+<div align="center">
+
+<table>
+<tr><th>Category</th><th>Classical stability</th><th>IHN stability</th><th>Classical fps</th><th>IHN fps</th></tr>
+<tr><td>Regular</td><td><b>0.886</b></td><td>0.864</td><td>16.5</td><td><b>27.8</b></td></tr>
+<tr><td>QuickRotation</td><td>0.862</td><td><b>0.897</b></td><td>16.3</td><td><b>27.2</b></td></tr>
+<tr><td>Zooming</td><td><b>0.879</b></td><td>0.766</td><td>16.9</td><td><b>25.2</b></td></tr>
+<tr><td>Parallax</td><td><b>0.877</b></td><td>0.812</td><td>16.3</td><td><b>25.6</b></td></tr>
+<tr><td>Crowd</td><td><b>0.848</b></td><td>0.833</td><td>16.7</td><td><b>24.9</b></td></tr>
+<tr><td>Running</td><td>0.848</td><td><b>0.852</b></td><td>16.3</td><td><b>26.7</b></td></tr>
+<tr><td>Mean</td><td><b>0.867</b></td><td>0.837</td><td>16.5</td><td><b>26.3</b></td></tr>
+</table>
+
+</div>
 
 The IHN wins the hard rotation case and runs about 1.6x faster everywhere. The classical pipeline is steadier on large zoom and parallax, which are the motions furthest from the IHN's synthetic training distribution.
 
@@ -213,7 +218,7 @@ gimbal benchmark                                            # classical against 
 gimbal info                                                 # GPU and library versions
 ```
 
-gimbal is GPU only. It fails with a clear message, not a crash, when no CUDA device is visible.
+gimbal requires CUDA cores, so will likely require an external GPU. It will proceed to error without this. 
 
 ## License
 
