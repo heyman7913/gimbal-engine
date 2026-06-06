@@ -7,7 +7,7 @@
 > **Install**
 >
 > ```bash
-> pip install gimbal_engine
+> pip install gimbal-engine
 > ```
 >
 > Building the compiled CUDA extension needs an NVIDIA GPU and a CUDA toolkit. The trained weights ship inside the package, so a successful install can stabilize immediately with no extra download. If you do not have a local toolchain, the Docker path under [Build and install](#build-and-install) builds everything.
@@ -201,7 +201,7 @@ The package is published as a source distribution. pip compiles the CUDA extensi
 ### With a CUDA toolchain
 
 > ```bash
-> pip install gimbal_engine
+> pip install gimbal-engine
 > ```
 
 This needs an NVIDIA GPU and a CUDA toolkit (nvcc) that matches your PyTorch build. The build detects your GPU architecture; if nvcc is missing it stops with a clear message rather than a compiler error.
