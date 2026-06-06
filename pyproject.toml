@@ -4,23 +4,52 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gimbal_engine"
-version = "2.1.0"
-description = "Two interchangeable camera-motion estimators (classical CUDA vs learned IHN) behind one interface, benchmarked head to head for video stabilization."
+version = "2.1.1"
+description = "GPU-accelerated video stabilization with a deep-learning homography model and a custom fused CUDA autograd kernel."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
-authors = [{ name = "heyman7913" }]
-keywords = ["cuda", "video-stabilization", "homography", "optical-flow", "computer-vision"]
+authors = [{ name = "Himansh Chitkara" }]
+keywords = [
+    "cuda",
+    "gpu",
+    "pytorch",
+    "deep-learning",
+    "machine-learning",
+    "computer-vision",
+    "video-stabilization",
+    "video-processing",
+    "homography",
+    "optical-flow",
+    "cuda-kernels",
+    "cuda-extension",
+    "image-processing",
+    "cli-tool",
+]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: GPU",
     "Environment :: GPU :: NVIDIA CUDA",
+    "Environment :: GPU :: NVIDIA CUDA :: 12",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Multimedia :: Video",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
 # torch and cupy must match the host CUDA / GPU architecture. They are installed
@@ -46,6 +75,9 @@ gimbal = "gimbal.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/heyman7913/gimbal-engine"
+Repository = "https://github.com/heyman7913/gimbal-engine"
+Documentation = "https://github.com/heyman7913/gimbal-engine#readme"
+Issues = "https://github.com/heyman7913/gimbal-engine/issues"
 
 [tool.setuptools]
 include-package-data = true
@@ -55,7 +87,7 @@ where = ["."]
 include = ["gimbal*"]
 
 [tool.setuptools.package-data]
-gimbal = ["weights/*.pt"]
+gimbal = ["weights/*.pt", "py.typed"]
 
 [tool.ruff]
 line-length = 100

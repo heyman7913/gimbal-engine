@@ -1,5 +1,5 @@
 # Docker GPU workflow. Host needs only Docker + the NVIDIA Container Toolkit.
-IMAGE := cuda-motion-flow:dev
+IMAGE := gimbal:dev
 ROOT  := $(shell pwd)
 MOUNTS := -v $(ROOT):/workspace -v $(ROOT)/data:/workspace/data \
           -v $(ROOT)/weights:/workspace/weights -v $(ROOT)/outputs:/workspace/outputs

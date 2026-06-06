@@ -1,2 +1,3 @@
 recursive-include cuda-src *.cu *.cuh *.cpp *.h
 recursive-include gimbal/weights *.pt
+include gimbal/py.typed

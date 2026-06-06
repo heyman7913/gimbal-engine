@@ -2,7 +2,7 @@
 
 <p align="center"><em>GPU video stabilization with two interchangeable camera motion estimators, a custom CUDA pipeline and a learned homography network, benchmarked head to head.</em></p>
 
-<p align="center"><img src="media/cli.png" alt="The gimbal CLI on a stabilize run" width="820"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/cli.png" alt="The gimbal CLI on a stabilize run" width="820"></p>
 
 > **Install**
 >
@@ -21,9 +21,9 @@ Three NUS clips, across rotation, running, and crowd scenes. Each row is one cli
 <div align="center">
 <table>
 <tr>
-<td align="center"><img src="media/rotation_shaky.gif" width="240" alt="shaky input"></td>
-<td align="center"><img src="media/rotation_ihn.gif" width="240" alt="gimbal IHN result"></td>
-<td align="center"><img src="media/rotation_classical.gif" width="240" alt="classical result"></td>
+<td align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/rotation_shaky.gif" width="240" alt="shaky input"></td>
+<td align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/rotation_ihn.gif" width="240" alt="gimbal IHN result"></td>
+<td align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/rotation_classical.gif" width="240" alt="classical result"></td>
 </tr>
 <tr>
 <td align="center"><b>Shaky input</b></td>
@@ -32,9 +32,9 @@ Three NUS clips, across rotation, running, and crowd scenes. Each row is one cli
 </tr>
 <tr><td colspan="3" align="center"><sub>QuickRotation/19.avi</sub></td></tr>
 <tr>
-<td align="center"><img src="media/running_shaky.gif" width="240" alt="shaky input"></td>
-<td align="center"><img src="media/running_ihn.gif" width="240" alt="gimbal IHN result"></td>
-<td align="center"><img src="media/running_classical.gif" width="240" alt="classical result"></td>
+<td align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/running_shaky.gif" width="240" alt="shaky input"></td>
+<td align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/running_ihn.gif" width="240" alt="gimbal IHN result"></td>
+<td align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/running_classical.gif" width="240" alt="classical result"></td>
 </tr>
 <tr>
 <td align="center"><b>Shaky input</b></td>
@@ -43,9 +43,9 @@ Three NUS clips, across rotation, running, and crowd scenes. Each row is one cli
 </tr>
 <tr><td colspan="3" align="center"><sub>Running/1.avi</sub></td></tr>
 <tr>
-<td align="center"><img src="media/crowd_shaky.gif" width="240" alt="shaky input"></td>
-<td align="center"><img src="media/crowd_ihn.gif" width="240" alt="gimbal IHN result"></td>
-<td align="center"><img src="media/crowd_classical.gif" width="240" alt="classical result"></td>
+<td align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/crowd_shaky.gif" width="240" alt="shaky input"></td>
+<td align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/crowd_ihn.gif" width="240" alt="gimbal IHN result"></td>
+<td align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/media/crowd_classical.gif" width="240" alt="classical result"></td>
 </tr>
 <tr>
 <td align="center"><b>Shaky input</b></td>
@@ -133,9 +133,9 @@ Classical against the learned IHN across all six NUS scene categories (144 clips
 
 The IHN wins the hard rotation case and runs about 1.6x faster everywhere. The classical pipeline is steadier on large zoom and parallax, which are the motions furthest from the IHN's synthetic training distribution.
 
-<p align="center"><img src="benchmark/dashboard.png" alt="NUS benchmark dashboard" width="900"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/benchmark/dashboard.png" alt="NUS benchmark dashboard" width="900"></p>
 
-<p align="center"><img src="benchmark/quality_vs_speed.png" alt="Quality against speed, per category" width="700"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/benchmark/quality_vs_speed.png" alt="Quality against speed, per category" width="700"></p>
 
 ### Training ablation
 
@@ -167,7 +167,7 @@ The cost volume operator and the inference loop, measured on the same GPU. The f
 
 </div>
 
-<p align="center"><img src="perf_study/roofline.png" alt="Fused correlation roofline" width="700"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/heyman7913/gimbal-engine/main/perf_study/roofline.png" alt="Fused correlation roofline" width="700"></p>
 
 The roofline shows why the simplest kernel wins: at a 16x16 cost volume the operation is latency and occupancy bound, not compute bound, so launching enough threads with coalesced loads beats reducing arithmetic.
 
